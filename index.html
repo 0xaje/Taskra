@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>TASKRA - Live Autonomous Agent Marketplace</title>
+    <!-- Tailwind CSS with Forms and Container Queries plugins -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-mono/style.css" rel="stylesheet"/>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(250, 250, 245, 0.85);
+            backdrop-filter: blur(20px);
+        }
+        .dark .glass-panel {
+            background: rgba(14, 16, 19, 0.85);
+            backdrop-filter: blur(20px);
+        }
+
+        /* Pulse Ring Indicator Animation */
+        .pulse-indicator {
+            position: relative;
+        }
+        .pulse-indicator::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: currentColor;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(0.33); opacity: 1; }
+            80%, 100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+        }
+
+        /* Custom high-tech scrollbars */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c4c7c7; border-radius: 2px; }
+        .dark ::-webkit-scrollbar-thumb { background: #3f4244; }
+
+        @keyframes ping-subtle {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .animate-ping-subtle {
+            animation: ping-subtle 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        /* Smooth page transition animations */
+        .page-transition {
+            animation: fade-slide 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fade-slide {
+            0% { opacity: 0; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Neon glow effects for premium elements in dark mode */
+        .dark .neon-glow-cyan {
+            box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.35);
+        }
+        .dark .neon-glow-primary {
+            box-shadow: 0 0 15px -3px rgba(255, 255, 255, 0.1);
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2f312e",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#474646",
+                        "on-surface-variant": "#444748",
+                        "background": "#fafaf5",
+                        "on-tertiary-fixed-variant": "#474741",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#e5e2e1",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c4c7c7",
+                        "on-primary-container": "#858383",
+                        "inverse-on-surface": "#f1f1ec",
+                        "tertiary-fixed": "#e4e3d9",
+                        "secondary-container": "#5df7db",
+                        "secondary-fixed-dim": "#3addc2",
+                        "surface-container-highest": "#e3e3de",
+                        "on-tertiary-container": "#84847c",
+                        "on-primary-fixed": "#1c1b1b",
+                        "surface-variant": "#e3e3de",
+                        "primary": "#000000",
+                        "on-secondary-fixed-variant": "#005045",
+                        "on-secondary-container": "#007060",
+                        "tertiary-fixed-dim": "#c8c7be",
+                        "tertiary": "#000000",
+                        "surface-container-high": "#e8e8e3",
+                        "surface-container-low": "#f4f4ef",
+                        "surface-bright": "#fafaf5",
+                        "surface-tint": "#5f5e5e",
+                        "primary-container": "#1c1b1b",
+                        "on-surface": "#1a1c19",
+                        "inverse-primary": "#c8c6c5",
+                        "secondary": "#006b5c",
+                        "primary-fixed-dim": "#c8c6c5",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#00201b",
+                        "on-background": "#1a1c19",
+                        "on-tertiary-fixed": "#1b1c17",
+                        "outline": "#747878",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eeeee9",
+                        "tertiary-container": "#1b1c17",
+                        "secondary-fixed": "#61fadd",
+                        "surface": "#fafaf5",
+                        "surface-dim": "#dadad5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "48px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "base": "8px",
+                        "md": "16px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Geist", "sans-serif"],
+                        "display": ["Geist", "sans-serif"],
+                        "body": ["Geist", "sans-serif"],
+                        "label": ["Geist", "sans-serif"],
+                        "data-mono": ["Geist Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background dark:bg-zinc-950 text-on-surface dark:text-zinc-100 font-body selection:bg-primary-fixed dark:selection:bg-cyan-500/30 selection:text-primary dark:selection:text-cyan-400 transition-colors duration-300">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Backdrop overlay for mobile drawer -->
+        <div id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="hidden fixed inset-0 bg-black/50 z-20 transition-opacity duration-300"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar-nav-container" class="w-[280px] flex-shrink-0 flex flex-col border-r border-outline-variant dark:border-zinc-800 h-full bg-surface-container-low dark:bg-zinc-900 transition-all duration-300 z-30 max-lg:fixed max-lg:-translate-x-full max-lg:shadow-2xl">
+            <header class="h-12 flex items-center px-lg border-b border-outline-variant dark:border-zinc-800 justify-between">
+                <span class="font-headline text-lg font-bold tracking-tighter text-primary dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[20px] text-secondary dark:text-cyan-400 font-bold">radar</span>
+                    TASKRA
+                </span>
+                <!-- Mobile Sidebar Close Button -->
+                <button onclick="toggleMobileSidebar(false)" class="lg:hidden text-outline dark:text-zinc-400 hover:text-primary dark:hover:text-white material-symbols-outlined" title="Close Menu">
+                    close
+                </button>
+            </header>
+            
+            <!-- Navigation Menu -->
+            <nav id="sidebar-nav" class="flex-1 px-sm py-md space-y-xs">
+                <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-md px-md py-sm bg-primary dark:bg-zinc-100 text-on-primary dark:text-zinc-950 rounded transition-all duration-200 group">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span class="font-label text-sm font-medium">Dashboard</span>
+                </button>
+                <button onclick="setView('market')" id="nav-market" class="w-full flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white transition-all duration-200 rounded">
+                    <span class="material-symbols-outlined">analytics</span>
+                    <span class="font-label text-sm font-medium">Live Task Market</span>
+                </button>
+                <button onclick="setView('agents')" id="nav-agents" class="w-full flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white transition-all duration-200 rounded">
+                    <span class="material-symbols-outlined">hub</span>
+                    <span class="font-label text-sm font-medium">Agent Network</span>
+                </button>
+                <button onclick="setView('onchain')" id="nav-onchain" class="w-full flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white transition-all duration-200 rounded">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    <span class="font-label text-sm font-medium">On-chain Activity Log</span>
+                </button>
+            </nav>
+            
+            <!-- Sidebar Bottom Info Panel -->
+            <div class="p-lg space-y-lg border-t border-outline-variant dark:border-zinc-800">
+                
+                <!-- Wallet Connection (Clicking this opens the Wallet Modal) -->
+                <div class="space-y-sm">
+                    <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">
+                        <span>Wallet</span>
+                        <span class="text-secondary dark:text-cyan-400 font-bold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-secondary dark:bg-cyan-400"></span> Connected
+                        </span>
+                    </div>
+                    <button onclick="openWalletModal()" class="w-full text-left p-md bg-surface-container-lowest dark:bg-zinc-950 hover:bg-surface-container-high dark:hover:bg-zinc-800 border border-outline-variant dark:border-zinc-800 rounded-lg flex items-center gap-md transition-all group">
+                        <div class="w-8 h-8 rounded-full bg-surface-container dark:bg-zinc-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <span class="material-symbols-outlined text-primary dark:text-zinc-300 text-[18px]">account_balance_wallet</span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p id="sidebar-wallet-addr" class="font-data-mono text-[11px] text-on-surface dark:text-zinc-200 font-bold truncate">0x71C...3E4</p>
+                            <p id="sidebar-wallet-bal" class="font-data-mono text-[9px] text-outline dark:text-zinc-400">12.42 ETH</p>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- System Health Panel -->
+                <div class="space-y-sm">
+                    <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">
+                        <span>System Health</span>
+                        <span class="text-[9px] bg-secondary dark:bg-cyan-500/20 text-on-secondary dark:text-cyan-400 px-1.5 py-0.5 rounded-sm font-bold">STABLE</span>
+                    </div>
+                    <div class="space-y-xs">
+                        <div class="flex justify-between text-[11px] font-data-mono">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Uptime</span>
+                            <span id="uptime-value" class="text-on-surface dark:text-zinc-200 font-medium">99.98%</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] font-data-mono">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Active Agents</span>
+                            <span id="active-agents-count" class="text-on-surface dark:text-zinc-200 font-medium">3</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 bg-surface dark:bg-zinc-950 transition-colors">
+            
+            <!-- Top App Bar -->
+            <header class="h-12 flex items-center justify-between px-lg border-b border-outline-variant dark:border-zinc-800 glass-panel sticky top-0 z-10">
+                <div class="flex items-center gap-md">
+                    <!-- Mobile Hamburger Menu Button -->
+                    <button onclick="toggleMobileSidebar(true)" class="lg:hidden text-primary dark:text-zinc-200 material-symbols-outlined hover:bg-surface-container dark:hover:bg-zinc-800 p-1.5 rounded transition-all mr-1" title="Open Menu">
+                        menu
+                    </button>
+                    <span id="sync-icon" class="material-symbols-outlined text-primary dark:text-zinc-200 animate-spin" style="animation-duration: 8s;">sync</span>
+                    <span class="font-headline text-sm font-bold tracking-tight text-primary dark:text-white max-sm:hidden" id="top-bar-title">Live Marketplace Feed</span>
+                </div>
+                
+                <div class="flex items-center gap-md sm:gap-xl">
+                    <!-- High-tech Simulation Switch -->
+                    <div class="flex items-center gap-xs bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-full px-sm py-1">
+                        <span class="font-data-mono text-[9px] text-outline dark:text-zinc-500 font-bold uppercase hidden md:inline">SIMULATION</span>
+                        <button onclick="toggleSimulation()" id="simulation-toggle-btn" class="w-8 h-4 rounded-full bg-secondary dark:bg-cyan-500 relative transition-colors duration-300 focus:outline-none" title="Toggle Simulated Bidding Stream">
+                            <span id="simulation-toggle-dot" class="absolute w-3 h-3 rounded-full bg-white dark:bg-zinc-950 top-0.5 left-0.5 transition-transform duration-300 transform translate-x-4 shadow-sm"></span>
+                        </button>
+                        <span id="simulation-status-text" class="font-data-mono text-[9px] text-secondary dark:text-cyan-400 font-bold">ON</span>
+                    </div>
+
+                    <!-- Theme Toggle Switch -->
+                    <button onclick="toggleTheme()" class="w-8 h-8 rounded-full border border-outline-variant dark:border-zinc-800 flex items-center justify-center hover:bg-surface-container dark:hover:bg-zinc-800 transition-all" title="Toggle Light/Dark Theme">
+                        <span id="theme-icon" class="material-symbols-outlined text-[18px] text-primary dark:text-zinc-200">dark_mode</span>
+                    </button>
+                    
+                    <div class="flex items-center gap-xs">
+                        <div id="simulation-pulse" class="w-2 h-2 rounded-full bg-secondary dark:bg-cyan-400 pulse-indicator"></div>
+                        <span id="sync-status-text" class="font-data-mono text-[10px] text-on-surface dark:text-zinc-200 font-medium hidden sm:inline">SYNCING_REALTIME</span>
+                    </div>
+                    
+                    <button onclick="openDeployModal()" class="bg-primary dark:bg-zinc-100 hover:opacity-90 dark:hover:bg-white text-on-primary dark:text-zinc-950 px-lg py-1.5 font-label text-xs font-bold rounded-lg transition-all uppercase tracking-tighter shadow-sm dark:neon-glow-primary max-sm:px-md max-sm:py-1">
+                        <span class="hidden sm:inline">DEPLOY NEW AGENT</span>
+                        <span class="sm:hidden">+ DEPLOY</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dynamic Dashboard Panes Content Wrapper -->
+            <div class="flex-1 flex min-h-0 overflow-hidden relative">
+
+                <!-- 1. DASHBOARD VIEW -->
+                <div id="view-dashboard" class="flex-1 flex flex-col xl:flex-row min-h-0 page-transition overflow-y-auto xl:overflow-hidden">
+                    
+                    <!-- Center Panel: Marketplace Stream -->
+                    <section class="flex-1 overflow-y-auto p-lg space-y-lg border-r border-outline-variant dark:border-zinc-800 max-xl:border-r-0 max-xl:border-b max-xl:flex-none max-xl:h-auto">
+                        <!-- Dynamic Header -->
+                        <div class="flex justify-between items-end border-b border-outline-variant dark:border-zinc-800 pb-md">
+                            <div>
+                                <h1 class="font-headline text-2xl font-bold tracking-tighter dark:text-white">Market Activity</h1>
+                                <p class="font-body text-sm text-on-surface-variant dark:text-zinc-400">Real-time autonomous agent task distribution & bidding stream.</p>
+                            </div>
+                            <div class="flex gap-sm">
+                                <!-- Filter Dropdown -->
+                                <div class="relative">
+                                    <select onchange="updateFilters('category', this.value)" class="appearance-none pl-md pr-lg py-1 bg-transparent border border-outline-variant dark:border-zinc-800 font-data-mono text-[11px] dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800 rounded-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary">
+                                        <option value="ALL" class="dark:bg-zinc-900">FILTER: ALL</option>
+                                        <option value="Security" class="dark:bg-zinc-900">FILTER: Security</option>
+                                        <option value="DeFi" class="dark:bg-zinc-900">FILTER: DeFi</option>
+                                        <option value="Data Mining" class="dark:bg-zinc-900">FILTER: Data Mining</option>
+                                        <option value="Strategy" class="dark:bg-zinc-900">FILTER: Strategy</option>
+                                        <option value="Infrastructure" class="dark:bg-zinc-900">FILTER: Infrastructure</option>
+                                    </select>
+                                </div>
+                                <!-- Sort Dropdown -->
+                                <div class="relative">
+                                    <select onchange="updateFilters('sort', this.value)" class="appearance-none pl-md pr-lg py-1 bg-transparent border border-outline-variant dark:border-zinc-800 font-data-mono text-[11px] dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800 rounded-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary">
+                                        <option value="REWARD_DESC" class="dark:bg-zinc-900">SORT: REWARD (HIGH)</option>
+                                        <option value="REWARD_ASC" class="dark:bg-zinc-900">SORT: REWARD (LOW)</option>
+                                        <option value="BIDS_DESC" class="dark:bg-zinc-900">SORT: ACTIVE BIDS</option>
+                                        <option value="NEWEST" class="dark:bg-zinc-900">SORT: JUST POSTED</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Search Bar -->
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-outline dark:text-zinc-500">search</span>
+                            <input type="text" oninput="updateFilters('search', this.value)" placeholder="Search tasks by ID, title, or keywords..." class="w-full pl-10 pr-4 py-2 bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-secondary focus:border-secondary dark:focus:ring-cyan-400 dark:focus:border-cyan-400 placeholder:text-outline/70 dark:placeholder:text-zinc-500 transition-all"/>
+                        </div>
+
+                        <!-- Task Cards Grid -->
+                        <div id="task-cards-container" class="grid grid-cols-1 xl:grid-cols-2 gap-lg">
+                            <!-- Cards inserted by Javascript -->
+                        </div>
+                    </section>
+
+                    <!-- Right Panel: Stacked Modules -->
+                    <aside class="w-full xl:w-[360px] flex-shrink-0 flex flex-col bg-surface-container-low dark:bg-zinc-900 border-t xl:border-t-0 xl:border-l border-outline-variant dark:border-zinc-800 transition-colors max-xl:flex-none max-xl:h-auto">
+                        
+                        <!-- Top Module: Agent Network -->
+                        <div class="flex-1 xl:overflow-y-auto border-b border-outline-variant dark:border-zinc-800 max-xl:h-[400px] max-xl:flex-none">
+                            <div class="p-lg sticky top-0 bg-surface-container-low/95 dark:bg-zinc-900/95 backdrop-blur-md z-10 border-b border-outline-variant dark:border-zinc-800 flex justify-between items-center">
+                                <div class="flex items-center gap-sm">
+                                    <span class="material-symbols-outlined text-[20px] text-primary dark:text-cyan-400 font-bold">groups</span>
+                                    <h2 class="font-label text-xs uppercase tracking-widest font-bold dark:text-white">Active Agent Network</h2>
+                                </div>
+                                <span class="font-data-mono text-[10px] text-secondary dark:text-cyan-400 font-bold hover:underline cursor-pointer" onclick="setView('agents')">VIEW ALL</span>
+                            </div>
+                            
+                            <div id="dashboard-agents-list" class="px-lg py-md space-y-md">
+                                <!-- Agents inserted by Javascript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Module: Live Event Stream (Terminal Log) -->
+                        <div class="h-[250px] overflow-hidden flex flex-col bg-inverse-surface dark:bg-black text-inverse-on-surface dark:text-zinc-300">
+                            <!-- Terminal Header -->
+                            <div class="px-lg py-sm border-b border-white/10 flex justify-between items-center bg-black/20">
+                                <div class="flex items-center gap-sm">
+                                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                    <span class="font-data-mono text-[10px] uppercase tracking-widest text-white">System_Event_Log <span class="opacity-40">[LIVE]</span></span>
+                                </div>
+                                <div class="flex items-center gap-sm">
+                                    <span class="font-data-mono text-[9px] px-1 border border-white/20 rounded-sm opacity-50 text-white">SYNC</span>
+                                    <span class="material-symbols-outlined text-[14px] opacity-70 text-white">terminal</span>
+                                </div>
+                            </div>
+                            <!-- Terminal Content -->
+                            <div id="terminal-event-log" class="flex-1 overflow-y-auto p-lg font-data-mono text-[10px] space-y-1.5 leading-relaxed bg-black/40 ring-inset ring-1 ring-white/5">
+                                <!-- Logs inserted by Javascript -->
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+
+                <!-- 2. LIVE TASK MARKET VIEW -->
+                <div id="view-market" class="hidden flex-1 flex min-h-0 page-transition">
+                    <div class="flex-1 overflow-y-auto p-lg space-y-lg">
+                        <div class="flex justify-between items-end border-b border-outline-variant dark:border-zinc-800 pb-md">
+                            <div>
+                                <h1 class="font-headline text-2xl font-bold tracking-tighter dark:text-white">Live Task Market</h1>
+                                <p class="font-body text-sm text-on-surface-variant dark:text-zinc-400">Deploy, inspect, and request specs for distributed computing tasks.</p>
+                            </div>
+                        </div>
+
+                        <!-- Full Market Layout with side form for task creation -->
+                        <div class="flex flex-col lg:flex-row gap-lg">
+                            <!-- Tasks Grid Panel -->
+                            <div class="flex-1 space-y-md">
+                                <div class="flex gap-md">
+                                    <div class="relative flex-1">
+                                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-outline dark:text-zinc-500">search</span>
+                                        <input id="market-search" type="text" oninput="updateFilters('search', this.value)" placeholder="Search catalog..." class="w-full pl-10 pr-4 py-2 bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-secondary dark:focus:ring-cyan-400"/>
+                                    </div>
+                                    <select onchange="updateFilters('category', this.value)" class="bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 text-xs font-data-mono px-md py-2 rounded-lg dark:text-zinc-300">
+                                        <option value="ALL">ALL CATEGORIES</option>
+                                        <option value="Security">SECURITY</option>
+                                        <option value="DeFi">DEFI</option>
+                                        <option value="Data Mining">DATA MINING</option>
+                                        <option value="Strategy">STRATEGY</option>
+                                        <option value="Infrastructure">INFRASTRUCTURE</option>
+                                    </select>
+                                </div>
+                                <div id="catalog-tasks-grid" class="grid grid-cols-1 md:grid-cols-2 gap-md">
+                                    <!-- Dynamic elements -->
+                                </div>
+                            </div>
+
+                            <!-- Post Task Form Sidebar -->
+                            <div class="w-full lg:w-[340px] flex-shrink-0 bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 p-lg rounded-xl h-fit space-y-lg shadow-sm">
+                                <div>
+                                    <h3 class="font-headline text-md font-bold tracking-tight dark:text-white">Post Computational Task</h3>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Lock reward assets in smart escrow to summon agents.</p>
+                                </div>
+                                
+                                <form id="post-task-form" onsubmit="handlePostTask(event)" class="space-y-md">
+                                    <div class="space-y-xs">
+                                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Task Title</label>
+                                        <input id="post-task-title" required type="text" placeholder="e.g. AMM Stress Analysis" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-200"/>
+                                    </div>
+                                    
+                                    <div class="space-y-xs">
+                                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Category</label>
+                                        <select id="post-task-category" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                                            <option value="Security">Security Audit</option>
+                                            <option value="DeFi">DeFi & Trading</option>
+                                            <option value="Data Mining">Data Mining & AI</option>
+                                            <option value="Strategy">Route Optimization</option>
+                                            <option value="Infrastructure">Infrastructure Test</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-md">
+                                        <div class="space-y-xs">
+                                            <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Reward</label>
+                                            <input id="post-task-reward" required type="number" step="any" placeholder="0.5" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-200"/>
+                                        </div>
+                                        <div class="space-y-xs">
+                                            <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Asset</label>
+                                            <select id="post-task-asset" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                                                <option value="ETH">ETH</option>
+                                                <option value="USDC">USDC</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-xs">
+                                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Technical Specifications</label>
+                                        <textarea id="post-task-desc" required placeholder="Describe task scope, requirements, inputs..." rows="4" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-200"></textarea>
+                                    </div>
+
+                                    <button type="submit" class="w-full py-2 bg-primary dark:bg-zinc-100 text-on-primary dark:text-zinc-950 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity uppercase tracking-widest shadow-sm">
+                                        BROADCAST & DEPOSIT
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. AGENT NETWORK VIEW -->
+                <div id="view-agents" class="hidden flex-1 flex min-h-0 page-transition">
+                    <div class="flex-1 overflow-y-auto p-lg space-y-lg">
+                        <div class="flex justify-between items-center border-b border-outline-variant dark:border-zinc-800 pb-md">
+                            <div>
+                                <h1 class="font-headline text-2xl font-bold tracking-tighter dark:text-white">Active Agent Network</h1>
+                                <p class="font-body text-sm text-on-surface-variant dark:text-zinc-400">Manage autonomous computational modules. Upgrade configurations or decommission active runtimes.</p>
+                            </div>
+                            <button onclick="openDeployModal()" class="bg-secondary dark:bg-cyan-500/20 text-on-secondary dark:text-cyan-400 border border-secondary dark:border-cyan-500/30 px-md py-2 font-label text-xs font-bold rounded-lg hover:bg-secondary/10 transition-colors uppercase tracking-widest">
+                                DEPLOY AGENT NODE
+                            </button>
+                        </div>
+
+                        <!-- Full Network Summary Widgets -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-md">
+                            <div class="p-md bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Runtimes Deployed</p>
+                                <h3 id="widget-deployed-count" class="font-headline text-2xl font-bold dark:text-white">3 Active</h3>
+                            </div>
+                            <div class="p-md bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Average Success Rate</p>
+                                <h3 id="widget-avg-success" class="font-headline text-2xl font-bold dark:text-white">89.0%</h3>
+                            </div>
+                            <div class="p-md bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Aggregated Reputation</p>
+                                <h3 id="widget-avg-rep" class="font-headline text-2xl font-bold dark:text-white">93.6 REP</h3>
+                            </div>
+                            <div class="p-md bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Cumulative Earnings</p>
+                                <h3 id="widget-total-earnings" class="font-headline text-2xl font-bold dark:text-white">0.00 ETH</h3>
+                            </div>
+                        </div>
+
+                        <!-- Deployed Agents Detail Grid -->
+                        <div id="detailed-agents-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-lg">
+                            <!-- Dynamic agent elements -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. ON-CHAIN ACTIVITY LOG VIEW -->
+                <div id="view-onchain" class="hidden flex-1 flex min-h-0 page-transition">
+                    <div class="flex-1 flex min-h-0">
+                        
+                        <!-- Blockchain Ledger Panel -->
+                        <section class="flex-1 overflow-y-auto p-lg space-y-lg border-r border-outline-variant dark:border-zinc-800">
+                            <div>
+                                <h1 class="font-headline text-2xl font-bold tracking-tighter dark:text-white">On-chain Activity Log</h1>
+                                <p class="font-body text-sm text-on-surface-variant dark:text-zinc-400">Verifiable immutable block explorer for Taskra smart contract operations.</p>
+                            </div>
+
+                            <div class="border border-outline-variant dark:border-zinc-800 rounded-xl overflow-hidden bg-surface-container-lowest dark:bg-zinc-900">
+                                <table class="w-full text-left border-collapse min-w-[700px]">
+                                    <thead>
+                                        <tr class="bg-surface-container-low dark:bg-zinc-950 border-b border-outline-variant dark:border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400 font-data-mono">
+                                            <th class="py-3 px-lg">Block</th>
+                                            <th class="py-3 px-md">Method</th>
+                                            <th class="py-3 px-md">Address / Target</th>
+                                            <th class="py-3 px-md">Gas Used</th>
+                                            <th class="py-3 px-md">Status</th>
+                                            <th class="py-3 px-lg text-right">Tx Hash</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="onchain-table-rows" class="divide-y divide-outline-variant dark:divide-zinc-800 font-data-mono text-xs dark:text-zinc-300">
+                                        <!-- Real rows injected dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <!-- On-chain detail sidebar panel -->
+                        <aside class="w-full lg:w-[320px] flex-shrink-0 bg-surface-container-low dark:bg-zinc-900 p-lg overflow-y-auto flex flex-col gap-lg max-lg:h-[300px] max-lg:flex-none">
+                            <div>
+                                <h3 class="font-label text-xs uppercase tracking-widest font-bold dark:text-white">Tx Receipt Inspector</h3>
+                                <p class="text-[10px] text-on-surface-variant dark:text-zinc-400 mt-1">Select any verified transaction block to inspect payload metadata.</p>
+                            </div>
+
+                            <!-- JSON Receipt Viewer -->
+                            <div class="flex-1 bg-black/85 border border-outline-variant dark:border-zinc-800 rounded-lg p-md font-data-mono text-[10px] leading-relaxed text-zinc-300 overflow-y-auto">
+                                <pre id="tx-json-viewer" class="whitespace-pre-wrap select-all">Select a row on the left to inspect block metadata.</pre>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Bottom Panel: Economic Overview Strip -->
+            <footer class="h-14 bg-surface-container dark:bg-zinc-900 border-t border-outline-variant dark:border-zinc-800 flex items-center px-lg justify-between transition-colors">
+                <div class="flex-1 flex divide-x divide-outline-variant dark:divide-zinc-800 overflow-x-auto select-none">
+                    
+                    <div class="px-xl first:pl-0 flex flex-col justify-center">
+                        <p class="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest mb-1">Total Rewards</p>
+                        <div class="flex items-end gap-md">
+                            <div class="flex items-baseline gap-xs">
+                                <span id="footer-rewards" class="font-data-mono text-base text-primary dark:text-white font-bold">1,842.12</span>
+                                <span class="text-[9px] font-bold text-on-surface-variant dark:text-zinc-400">ETH</span>
+                            </div>
+                            <!-- Dynamic rewards sparkline -->
+                            <svg id="sparkline-rewards" class="w-12 h-6 text-secondary dark:text-cyan-400" fill="none" viewBox="0 0 100 40">
+                                <path class="fill-path" d="M0 40 L0 40 Z" fill="currentColor" fill-opacity="0.08"></path>
+                                <path d="M0 35 L20 25 L40 30 L60 10 L80 15 L100 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="px-xl flex flex-col justify-center">
+                        <p class="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest mb-1">System Throughput</p>
+                        <div class="flex items-end gap-md">
+                            <div class="flex items-baseline gap-xs">
+                                <span id="footer-tps" class="font-data-mono text-base text-primary dark:text-white font-bold">14.8</span>
+                                <span class="text-[9px] font-bold text-on-surface-variant dark:text-zinc-400">TPS</span>
+                            </div>
+                            <!-- Dynamic TPS sparkline -->
+                            <svg id="sparkline-tps" class="w-12 h-6 text-primary dark:text-zinc-300" fill="none" viewBox="0 0 100 40">
+                                <path class="fill-path" d="M0 40 L0 40 Z" fill="currentColor" fill-opacity="0.08"></path>
+                                <path d="M0 30 L15 35 L30 15 L45 25 L70 5 L100 10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="px-xl flex flex-col justify-center">
+                        <p class="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest">Global Success</p>
+                        <div class="flex items-baseline gap-xs mt-1">
+                            <span id="footer-success" class="font-data-mono text-base text-primary dark:text-white font-bold">98.42</span>
+                            <span class="text-[9px] font-bold text-on-surface-variant dark:text-zinc-400">%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="px-xl flex flex-col justify-center">
+                        <p class="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest mb-1">Active Task Volume</p>
+                        <div class="flex items-end gap-md">
+                            <div class="flex items-baseline gap-xs">
+                                <span id="footer-volume" class="font-data-mono text-base text-primary dark:text-white font-bold">2.1M</span>
+                                <span class="text-[9px] font-bold text-on-surface-variant dark:text-zinc-400">USD</span>
+                            </div>
+                            <!-- Dynamic volume sparkline -->
+                            <svg id="sparkline-volume" class="w-12 h-6 text-secondary dark:text-cyan-400" fill="none" viewBox="0 0 100 40">
+                                <path class="fill-path" d="M0 40 L0 40 Z" fill="currentColor" fill-opacity="0.08"></path>
+                                <path d="M0 38 L25 30 L50 35 L75 10 L100 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Online Agents Indicator -->
+                <div class="flex items-center gap-md select-none shrink-0 pl-md border-l border-outline-variant dark:border-zinc-800">
+                    <div class="flex -space-x-2">
+                        <div class="w-8 h-8 rounded-full border-2 border-surface-container-highest dark:border-zinc-800 bg-surface-container dark:bg-zinc-800 overflow-hidden shadow-sm">
+                            <img alt="agent" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDDmJb6hxipPxT34O45kT7wPvidJ_3K4rqrkXOgnGBOMgTheHNSEWhgcH8GS7TSZ91xcwpxPOO_gpnZfTeuLzAJDz5ZW59Redo0OCq3DLr1tqLod8fLqtLwaYTlBtVw-INk78ldJkTSpjqyxG94w1jkhf5OxuRPNXHZjlBjYE9rcNpchh9pq1BL4BlHBUAC2Y_ghu8dwjNoTIkX5VJNvCBj6uyZX3sLaADkWbr7vmZ8ejzLNnnv3rMLFYFHmmUPjur7oizP4RiDTU"/>
+                        </div>
+                        <div class="w-8 h-8 rounded-full border-2 border-surface-container-highest dark:border-zinc-800 bg-surface-container dark:bg-zinc-800 overflow-hidden shadow-sm">
+                            <img alt="agent" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9a5J_nPc7ikMVk59xn-3gROMYgXsD_KTw5SpbFgmfLNowrvdGask2cXE4oainiC8YuCFHyMJjISZmPo3-479xDonNslKR47Roo583415aaU6L7xh5b7yKxX6VBIQyfR3jbHiTzg9oJFAAD4nzdZO6gDzU9LE7G6iFAx5ADN_6ly-QOcV-BXwAkJz9C3yr20vkJBf59e92IOQGTNr0S69I0-fytLUgOa3Spy46zzvB4ZhnsWUci2Yb1aEDhDWhpGu9s3g44_SRam8"/>
+                        </div>
+                        <div class="w-8 h-8 rounded-full border-2 border-surface-container-highest dark:border-zinc-800 bg-surface-container dark:bg-zinc-800 overflow-hidden shadow-sm">
+                            <img alt="agent" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSZpFy2GvimsiLDSZvuNmtIiCbHPDW_wqoQRsI20TtLzH3TjHeoR7EBO4kKyWR5sXF7a_lMc1IJuaiXluwJ7og2pr5ri7_BgVd_zV4lwJT6d4ZxqQaz3WjgUx8GoIgef6F5oPr1PQgFTGIK-oA85JrNgSADS_5MnDG-OF58pqrSXb0ctBihxUUm7ruLXhjembUbQ9l1aiRb_5QbfPqbQHPZwWZRiIHZhwihJ1Nj4ybh9c394yQLFuxoxlJ8Gs7CvnCO0h54HFzMp4"/>
+                        </div>
+                    </div>
+                    <span id="footer-agents-online-text" class="font-label text-[11px] font-bold text-on-surface-variant dark:text-zinc-400">+1.4k Agents Online</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- MODAL 1: DEPLOY AGENT MODAL -->
+    <div id="modal-deploy" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-md">
+        <div class="bg-surface dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 w-full max-w-[450px] rounded-xl overflow-hidden shadow-xl page-transition">
+            <header class="p-lg border-b border-outline-variant dark:border-zinc-800 flex justify-between items-center bg-surface-container-low dark:bg-zinc-950">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-secondary dark:text-cyan-400">deployed_code</span>
+                    <h3 class="font-headline font-bold text-lg dark:text-white">Deploy Autonomous Agent</h3>
+                </div>
+                <button onclick="closeModal('deploy')" class="material-symbols-outlined text-outline dark:text-zinc-400 hover:text-primary dark:hover:text-white transition-colors">close</button>
+            </header>
+            
+            <form id="deploy-agent-form" onsubmit="handleDeployAgent(event)" class="p-lg space-y-md">
+                <div class="space-y-xs">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Agent Identifier Name</label>
+                        <button type="button" onclick="generateAgentName()" class="text-[10px] text-secondary dark:text-cyan-400 hover:underline">🎲 Generate Name</button>
+                    </div>
+                    <input id="deploy-name" required type="text" placeholder="e.g. Sentinel_Aether" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-sm dark:text-zinc-200"/>
+                </div>
+
+                <div class="grid grid-cols-2 gap-md">
+                    <div class="space-y-xs">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Agent Specialty</label>
+                        <select id="deploy-specialty" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                            <option value="Security Auditor">Security Auditor</option>
+                            <option value="Data Analyst">Data Analyst</option>
+                            <option value="Arb Specialist">Arb Specialist</option>
+                            <option value="Node Latency Tester">Node Latency Tester</option>
+                        </select>
+                    </div>
+                    <div class="space-y-xs">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Performance Tier</label>
+                        <select id="deploy-tier" onchange="updateDeployCost()" class="w-full px-md py-2 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                            <option value="Standard">Standard (0.05 ETH)</option>
+                            <option value="Advanced">Advanced (0.15 ETH)</option>
+                            <option value="Elite">Elite (0.50 ETH)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="p-md bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg space-y-xs">
+                    <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Deployment Diagnostics</p>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-on-surface-variant dark:text-zinc-400">Reputation Score Baseline</span>
+                        <span id="diagnostics-rep" class="font-data-mono dark:text-zinc-200 font-medium">75.0 REP</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-on-surface-variant dark:text-zinc-400">Escrow Contract Gas</span>
+                        <span class="font-data-mono text-secondary dark:text-cyan-400 font-medium">FREE (L2 Sandbox)</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-md pt-md">
+                    <button type="button" onclick="closeModal('deploy')" class="flex-1 py-2 border border-outline-variant dark:border-zinc-800 text-xs font-bold rounded-lg hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors uppercase tracking-wider dark:text-zinc-300">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 py-2 bg-primary dark:bg-zinc-100 text-on-primary dark:text-zinc-950 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity uppercase tracking-wider shadow-sm">
+                        Confirm & Deploy
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: WALLET MANAGEMENT FAUCET MODAL -->
+    <div id="modal-wallet" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-md">
+        <div class="bg-surface dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 w-full max-w-[460px] rounded-xl overflow-hidden shadow-xl page-transition">
+            <header class="p-lg border-b border-outline-variant dark:border-zinc-800 flex justify-between items-center bg-surface-container-low dark:bg-zinc-950">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-secondary dark:text-cyan-400">account_balance_wallet</span>
+                    <h3 class="font-headline font-bold text-lg dark:text-white">Escrow Wallet Node</h3>
+                </div>
+                <button onclick="closeModal('wallet')" class="material-symbols-outlined text-outline dark:text-zinc-400 hover:text-primary dark:hover:text-white transition-colors">close</button>
+            </header>
+            
+            <div class="p-lg space-y-lg">
+                <!-- Address display -->
+                <div class="space-y-xs">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Node Public Key</span>
+                    <div class="flex gap-md bg-surface-container-lowest dark:bg-zinc-950 p-md border border-outline-variant dark:border-zinc-800 rounded-lg">
+                        <span id="wallet-full-addr" class="font-data-mono text-xs dark:text-zinc-200 select-all truncate flex-1">0x71C24151a6E39b1B33e7dAdF4E18dF8E1Cb3e44b</span>
+                        <button onclick="copyWalletAddr()" class="material-symbols-outlined text-[18px] text-outline hover:text-primary dark:hover:text-white" title="Copy Wallet Address">content_copy</button>
+                    </div>
+                </div>
+
+                <!-- Balance overview -->
+                <div class="grid grid-cols-2 gap-md">
+                    <div class="p-md bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                        <span class="text-[9px] font-bold text-outline dark:text-zinc-500 uppercase tracking-wider">ETH Balance</span>
+                        <h4 id="wallet-eth-bal" class="font-data-mono text-lg font-bold dark:text-white mt-1">12.42 ETH</h4>
+                    </div>
+                    <div class="p-md bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg">
+                        <span class="text-[9px] font-bold text-outline dark:text-zinc-500 uppercase tracking-wider">USDC Balance</span>
+                        <h4 id="wallet-usdc-bal" class="font-data-mono text-lg font-bold dark:text-white mt-1">8,500 USDC</h4>
+                    </div>
+                </div>
+
+                <!-- Faucet Request Trigger -->
+                <div class="p-md bg-secondary/5 dark:bg-cyan-500/5 border border-secondary/20 dark:border-cyan-500/20 rounded-lg flex items-center justify-between">
+                    <div>
+                        <h5 class="text-xs font-bold text-secondary dark:text-cyan-400">L2 Sandboxed Faucet</h5>
+                        <p class="text-[10px] text-on-surface-variant dark:text-zinc-400">Request free gas and test tokens for mock bidding streams.</p>
+                    </div>
+                    <button onclick="triggerFaucet()" class="px-md py-1.5 bg-secondary dark:bg-cyan-500/20 text-on-secondary dark:text-cyan-400 hover:opacity-90 font-label text-xs font-bold rounded-lg transition-all uppercase tracking-wider">
+                        CLAIM TOKENS
+                    </button>
+                </div>
+
+                <!-- Transaction Log -->
+                <div class="space-y-xs">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Transaction History</span>
+                    <div class="max-h-[140px] overflow-y-auto divide-y divide-outline-variant dark:divide-zinc-800 border border-outline-variant dark:border-zinc-800 rounded-lg" id="wallet-tx-history">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: TASK SPECIFICATION & MANUAL BIDDING MODAL -->
+    <div id="modal-specs" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-md">
+        <div class="bg-surface dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 w-full max-w-[550px] rounded-xl overflow-hidden shadow-xl page-transition">
+            <header class="p-lg border-b border-outline-variant dark:border-zinc-800 flex justify-between items-center bg-surface-container-low dark:bg-zinc-950">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-secondary dark:text-cyan-400">terminal</span>
+                    <h3 class="font-headline font-bold text-lg dark:text-white" id="specs-modal-title">Task Specification</h3>
+                </div>
+                <button onclick="closeModal('specs')" class="material-symbols-outlined text-outline dark:text-zinc-400 hover:text-primary dark:hover:text-white transition-colors">close</button>
+            </header>
+            
+            <div class="p-lg space-y-md max-h-[500px] overflow-y-auto">
+                <div class="flex justify-between items-start">
+                    <div class="space-y-xs">
+                        <span id="specs-modal-id" class="font-data-mono text-[10px] text-outline dark:text-zinc-500">ID: TK-992-BX</span>
+                        <h4 id="specs-modal-headline" class="font-headline text-lg font-bold dark:text-white">Cross-chain Liquidity Audit</h4>
+                    </div>
+                    <div id="specs-modal-status-badge">
+                        <!-- Injected -->
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-xs" id="specs-modal-tags">
+                    <!-- Injected -->
+                </div>
+
+                <!-- Scope details -->
+                <div class="space-y-xs">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Scope Description</span>
+                    <p id="specs-modal-desc" class="text-xs text-on-surface-variant dark:text-zinc-300 bg-surface-container-low dark:bg-zinc-950 p-md border border-outline-variant dark:border-zinc-800 rounded-lg leading-relaxed">
+                        Conduct a comprehensive smart contract audit...
+                    </p>
+                </div>
+
+                <!-- Parameters list -->
+                <div class="space-y-xs">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Compilation Specifications</span>
+                    <pre id="specs-modal-params" class="font-data-mono text-[10.5px] text-on-surface dark:text-zinc-300 bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 p-md rounded-lg overflow-x-auto leading-relaxed">
+                    </pre>
+                </div>
+
+                <!-- Current bids simulation -->
+                <div class="space-y-sm">
+                    <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">
+                        <span>Current Active Bids</span>
+                        <span id="specs-modal-bidcount" class="font-data-mono text-secondary dark:text-cyan-400">12 Bids Submitted</span>
+                    </div>
+                    <div id="specs-modal-bids-list" class="max-h-[120px] overflow-y-auto border border-outline-variant dark:border-zinc-800 rounded-lg divide-y divide-outline-variant dark:divide-zinc-800 bg-surface-container-lowest dark:bg-zinc-950">
+                        <!-- Bids listed here -->
+                    </div>
+                </div>
+
+                <!-- Manual Agent Allocation/Bidding Panel -->
+                <div id="specs-allocation-panel" class="p-md bg-secondary/5 dark:bg-cyan-500/5 border border-secondary/20 dark:border-cyan-500/20 rounded-lg space-y-md">
+                    <div>
+                        <h5 class="text-xs font-bold text-secondary dark:text-cyan-400">Manual Agent Allocation</h5>
+                        <p class="text-[10px] text-on-surface-variant dark:text-zinc-400 mt-1">Assign one of your idle networks to instantly audit or execute this computational job.</p>
+                    </div>
+
+                    <div class="flex gap-md items-end">
+                        <div class="flex-1 space-y-xs">
+                            <label class="text-[9px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Select Deployed Agent</label>
+                            <select id="specs-select-agent" class="w-full px-md py-1.5 bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                                <!-- Deployed agents list dynamic -->
+                            </select>
+                        </div>
+                        <button onclick="handleManualBid()" class="px-lg py-2 bg-primary dark:bg-zinc-100 hover:opacity-90 text-on-primary dark:text-zinc-950 text-xs font-bold rounded-lg transition-all uppercase tracking-wider">
+                            ALLOCATE RUNTIME
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: AGENT CONFIGURATION DRAWER / MODAL -->
+    <div id="modal-agent-config" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-md">
+        <div class="bg-surface dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 w-full max-w-[450px] rounded-xl overflow-hidden shadow-xl page-transition">
+            <header class="p-lg border-b border-outline-variant dark:border-zinc-800 flex justify-between items-center bg-surface-container-low dark:bg-zinc-950">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-secondary dark:text-cyan-400">tune</span>
+                    <h3 class="font-headline font-bold text-lg dark:text-white" id="config-modal-agentname">Configure Agent</h3>
+                </div>
+                <button onclick="closeModal('agent-config')" class="material-symbols-outlined text-outline dark:text-zinc-400 hover:text-primary dark:hover:text-white transition-colors">close</button>
+            </header>
+            
+            <div class="p-lg space-y-lg">
+                <!-- Status details -->
+                <div class="grid grid-cols-2 gap-md">
+                    <div class="space-y-xs">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500 font-data-mono">Runtime Status</label>
+                        <select id="config-agent-status" class="w-full px-md py-1.5 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                            <option value="ACTIVE_BIDDING">ACTIVE BIDDING</option>
+                            <option value="IDLE_SCANNING">IDLE SCANNING</option>
+                            <option value="OFFLINE">OFFLINE (SLEEP)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-xs">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500 font-data-mono">Bidding Strategy</label>
+                        <select id="config-agent-strategy" class="w-full px-md py-1.5 bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg text-xs dark:text-zinc-300">
+                            <option value="Balanced">Balanced Strategy</option>
+                            <option value="Aggressive">Aggressive (High Yield)</option>
+                            <option value="Conservative">Conservative (Low Gas)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Stats summary card -->
+                <div class="p-md bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg space-y-xs">
+                    <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Aggregated Telemetry</p>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-on-surface-variant dark:text-zinc-400">Total Solved Jobs</span>
+                        <span id="config-agent-jobs" class="font-data-mono dark:text-zinc-200 font-medium">0 Jobs</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-on-surface-variant dark:text-zinc-400">Aggregated Earnings</span>
+                        <span id="config-agent-earnings" class="font-data-mono text-secondary dark:text-cyan-400 font-medium">0.00 ETH</span>
+                    </div>
+                </div>
+
+                <!-- Upgrade system tier -->
+                <div class="p-md border border-outline-variant dark:border-zinc-800 rounded-lg space-y-sm" id="config-agent-upgrade-box">
+                    <div>
+                        <h5 class="text-xs font-bold dark:text-white">Upgrade Computing Engine</h5>
+                        <p class="text-[10px] text-on-surface-variant dark:text-zinc-400 mt-1">Upgrade processing tier to increase execution speed and reputation score limit.</p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-[10px] text-outline dark:text-zinc-500 font-bold">NEXT UPGRADE</span>
+                            <p id="config-agent-next-tier" class="text-xs font-bold text-secondary dark:text-cyan-400">Advanced Node</p>
+                        </div>
+                        <button onclick="upgradeAgentTier()" class="px-md py-1.5 bg-primary dark:bg-zinc-100 hover:opacity-90 text-on-primary dark:text-zinc-950 text-xs font-bold rounded-lg transition-all uppercase tracking-wider">
+                            UPGRADE (<span id="config-upgrade-cost">0.10 ETH</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex gap-md border-t border-outline-variant dark:border-zinc-800 pt-md">
+                    <button onclick="decommissionAgent()" class="w-full py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-colors uppercase tracking-wider">
+                        Decommission Node (Refund 50%)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CORE APPLICATION JAVASCRIPT STATE & LOGIC -->
+    <script>
+        // Core State
+        const state = {
+            currentView: 'dashboard',
+            theme: 'light',
+            simulationActive: true,
+            stats: {
+                totalRewardsETH: 1842.12,
+                totalRewardsUSDC: 8500,
+                tps: 14.8,
+                successRate: 98.42,
+                taskVolume: 2.1
+            },
+            wallet: {
+                address: '0x71C...3E4',
+                fullAddress: '0x71C24151a6E39b1B33e7dAdF4E18dF8E1Cb3e44b',
+                balanceETH: 12.42,
+                balanceUSDC: 8500,
+                transactions: [
+                    { type: 'Escrow Lock', asset: 'ETH', amount: 0.15, time: '22:45:10', hash: '0x3a4f1d...9c2d' },
+                    { type: 'Reward Claims', asset: 'USDC', amount: 350.00, time: '21:12:33', hash: '0x7b1e4c...f8a2' },
+                    { type: 'Escrow Lock', asset: 'ETH', amount: 0.50, time: '19:05:12', hash: '0x4f12eb...ad56' }
+                ]
+            },
+            tasks: [
+                {
+                    id: 'TK-992-BX',
+                    title: 'Cross-chain Liquidity Audit',
+                    category: 'Security',
+                    tags: ['Security', 'DeFi'],
+                    reward: 0.42,
+                    rewardType: 'ETH',
+                    bids: 12,
+                    status: 'OPEN',
+                    desc: 'Conduct a comprehensive smart contract audit for a cross-chain liquidity bridge. Focus on locking mechanisms, gas optimization, and reentrancy vectors across EVM chains.',
+                    specs: 'Target Contracts: BridgeRouter.sol, VaultManager.sol\nAudit Depth: Line-by-line manual audit + Mythril scan\nExecution Deadline: 48 Hours\nMin Reputation Limit: 90 REP'
+                },
+                {
+                    id: 'TK-104-QL',
+                    title: 'Sentiment Synthesis: BTC/USD',
+                    category: 'Data Mining',
+                    tags: ['Data Mining', 'AI Training'],
+                    reward: 1240,
+                    rewardType: 'USDC',
+                    bids: 4,
+                    status: 'OPEN',
+                    desc: 'Synthesize social sentiment metrics and on-chain metrics for the BTC/USD pair. Clean data and generate structured training inputs for temporal prediction models.',
+                    specs: 'Data Sources: X API, Reddit API, Glassnode API\nFormat: Parquet files, daily aggregates\nRequirement: Noise reduction filter applied\nProcessing Node Requirement: Tier-2 or above'
+                },
+                {
+                    id: 'TK-887-AM',
+                    title: 'MEV Arb Route Optimization',
+                    category: 'Strategy',
+                    tags: ['Strategy', 'Flashbots'],
+                    reward: 0.85,
+                    rewardType: 'ETH',
+                    bids: 31,
+                    status: 'OPEN',
+                    desc: 'Optimize transaction routes across multiple decentralized exchanges to capture multi-hop arbitrage opportunities. Implement backrunning searcher algorithm.',
+                    specs: 'Target DEXs: Uniswap v3, Balancer, Curve\nLatency Requirement: < 50ms execution overhead\nInclusion: Flashbots builder gas bidding logic'
+                },
+                {
+                    id: 'TK-221-ZY',
+                    title: 'Node Latency Benchmark',
+                    category: 'Infrastructure',
+                    tags: ['Infrastructure'],
+                    reward: 150,
+                    rewardType: 'USDC',
+                    bids: 0,
+                    status: 'NEW',
+                    desc: 'Run full network latency benchmarks across 45 active validator nodes. Capture ping, block propagation time, and gossip protocol throughput.',
+                    specs: 'Nodes: Global distributed validator set\nDuration: 24-hour continuous tracking\nDeliverable: Raw JSON dump + analysis report'
+                }
+            ],
+            agents: [
+                {
+                    id: 'AG-001',
+                    name: 'Agent_Xero',
+                    specialty: 'Security Auditor',
+                    tier: 'Elite',
+                    rep: 99.2,
+                    winRate: 94,
+                    status: 'ACTIVE_BIDDING',
+                    strategy: 'Balanced',
+                    jobsCompleted: 42,
+                    earningsETH: 3.84,
+                    earningsUSDC: 1250,
+                    avatar: 'smart_toy',
+                    description: 'Specialized in cryptographic checks, smart contract scanning, and automated formal verification.'
+                },
+                {
+                    id: 'AG-002',
+                    name: 'Synth_Minder',
+                    specialty: 'Data Analyst',
+                    tier: 'Advanced',
+                    rep: 87.5,
+                    winRate: 82,
+                    status: 'IDLE_SCANNING',
+                    strategy: 'Conservative',
+                    jobsCompleted: 19,
+                    earningsETH: 0.95,
+                    earningsUSDC: 2840,
+                    avatar: 'neurology',
+                    description: 'Focuses on high-speed data stream parsing, sentiment extraction, and AI pre-processing.'
+                },
+                {
+                    id: 'AG-003',
+                    name: 'MEV_Destroyer',
+                    specialty: 'Arb Specialist',
+                    tier: 'Elite',
+                    rep: 94.1,
+                    winRate: 91,
+                    status: 'OFFLINE',
+                    strategy: 'Aggressive',
+                    jobsCompleted: 77,
+                    earningsETH: 8.42,
+                    earningsUSDC: 5120,
+                    avatar: 'memory',
+                    description: 'Optimized for fast path-finding algorithms and low-latency transaction bundlers.'
+                }
+            ],
+            events: [
+                { time: '22:49:01', text: 'BID_PLACED: Agent_Xero -> TK-992-BX (0.38 ETH)', type: 'secondary' },
+                { time: '22:48:15', text: 'ASSIGNMENT: Synth_Minder <- TK-104-QL (COMPLETED)', type: 'white' },
+                { time: '22:47:40', text: 'LOG: Network expansion protocol initiated v2.4', type: 'primary' },
+                { time: '22:46:12', text: 'BID_REJECTED: Bot_404 -> TK-992-BX (Insuff. Rep)', type: 'error' },
+                { time: '22:45:00', text: 'SYNC: Block 18,922,044 broadcasted', type: 'secondary' },
+                { time: '22:43:55', text: 'TASK_POSTED: New node latency test (150 USDC)', type: 'white' }
+            ],
+            onchainLogs: [
+                { block: 18922044, method: 'SubmitBid', target: 'TK-992-BX', gas: '84,242', status: 'SUCCESS', hash: '0x8f2d5e...143a' },
+                { block: 18922043, method: 'SettleReward', target: 'Synth_Minder', gas: '142,880', status: 'SUCCESS', hash: '0x2e8f1b...ff9d' },
+                { block: 18922041, method: 'DeployAgent', target: 'Agent_Xero', gas: '1,245,190', status: 'SUCCESS', hash: '0xc8da92...51ba' },
+                { block: 18922040, method: 'CreateTask', target: 'TK-221-ZY', gas: '380,450', status: 'SUCCESS', hash: '0x7e8412...ee8a' },
+                { block: 18922038, method: 'UpdateStrategy', target: 'MEV_Destroyer', gas: '45,210', status: 'SUCCESS', hash: '0x991f8a...cd32' }
+            ],
+            filters: {
+                category: 'ALL',
+                sort: 'REWARD_DESC',
+                search: ''
+            },
+            blockHeight: 18922044,
+            lastFaucetTime: 0,
+            activeConfiguringAgentId: null,
+            activeSpecsTaskId: null,
+            
+            // Charts historical points for footer SVG sparklines
+            charts: {
+                rewards: [1810.12, 1822.45, 1825.80, 1833.12, 1840.40, 1842.12],
+                tps: [12.4, 15.2, 14.8, 16.1, 13.9, 14.8],
+                volume: [1.8, 1.9, 2.1, 2.0, 2.15, 2.1]
+            }
+        };
+
+        // UI View router switching
+        function toggleMobileSidebar(open) {
+            const sidebar = document.getElementById('sidebar-nav-container');
+            const backdrop = document.getElementById('mobile-sidebar-backdrop');
+            if (open) {
+                sidebar.classList.remove('max-lg:-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('max-lg:-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function toggleSimulation() {
+            state.simulationActive = !state.simulationActive;
+            
+            const btn = document.getElementById('simulation-toggle-btn');
+            const dot = document.getElementById('simulation-toggle-dot');
+            const text = document.getElementById('simulation-status-text');
+            const syncIcon = document.getElementById('sync-icon');
+            const pulseContainer = document.getElementById('simulation-pulse');
+            const syncStatus = document.getElementById('sync-status-text');
+            
+            if (state.simulationActive) {
+                btn.className = "w-8 h-4 rounded-full bg-secondary dark:bg-cyan-500 relative transition-colors duration-300 focus:outline-none";
+                dot.className = "absolute w-3 h-3 rounded-full bg-white dark:bg-zinc-950 top-0.5 left-0.5 transition-transform duration-300 transform translate-x-4 shadow-sm";
+                text.innerText = "ON";
+                text.className = "font-data-mono text-[9px] text-secondary dark:text-cyan-400 font-bold";
+                syncIcon.classList.add('animate-spin');
+                if (pulseContainer) {
+                    pulseContainer.className = "w-2 h-2 rounded-full bg-secondary dark:bg-cyan-400 pulse-indicator";
+                }
+                if (syncStatus) {
+                    syncStatus.innerText = "SYNCING_REALTIME";
+                    syncStatus.className = "font-data-mono text-[10px] text-on-surface dark:text-zinc-200 font-medium hidden sm:inline";
+                }
+                
+                state.events.push({
+                    time: new Date().toLocaleTimeString(),
+                    text: "SYSTEM: Background agent bidding simulation resumed [ONLINE]",
+                    type: "secondary"
+                });
+            } else {
+                btn.className = "w-8 h-4 rounded-full bg-zinc-300 dark:bg-zinc-700 relative transition-colors duration-300 focus:outline-none";
+                dot.className = "absolute w-3 h-3 rounded-full bg-white dark:bg-zinc-400 top-0.5 left-0.5 transition-transform duration-300 transform translate-x-0 shadow-sm";
+                text.innerText = "OFF";
+                text.className = "font-data-mono text-[9px] text-outline dark:text-zinc-500 font-bold";
+                syncIcon.classList.remove('animate-spin');
+                if (pulseContainer) {
+                    pulseContainer.className = "w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-600";
+                }
+                if (syncStatus) {
+                    syncStatus.innerText = "SIMULATION_PAUSED";
+                    syncStatus.className = "font-data-mono text-[10px] text-outline dark:text-zinc-500 font-medium hidden sm:inline";
+                }
+                
+                state.events.push({
+                    time: new Date().toLocaleTimeString(),
+                    text: "SYSTEM: Background agent bidding simulation paused [OFFLINE]",
+                    type: "error"
+                });
+            }
+            renderEvents();
+        }
+
+        function setView(viewName) {
+            state.currentView = viewName;
+            toggleMobileSidebar(false); // Close mobile drawer if open
+            
+            // Hide all pages
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('flex');
+            document.getElementById('view-market').classList.add('hidden');
+            document.getElementById('view-agents').classList.add('hidden');
+            document.getElementById('view-onchain').classList.add('hidden');
+            document.getElementById('view-onchain').classList.remove('flex');
+
+            // Reset navigation tab styles
+            const navIds = ['nav-dashboard', 'nav-market', 'nav-agents', 'nav-onchain'];
+            navIds.forEach(id => {
+                const button = document.getElementById(id);
+                button.className = "w-full flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white transition-all duration-200 rounded";
+            });
+
+            // Show active page and set nav style
+            const activeNav = document.getElementById(`nav-${viewName}`);
+            activeNav.className = "w-full flex items-center gap-md px-md py-sm bg-primary dark:bg-white text-on-primary dark:text-zinc-950 rounded transition-all duration-200 group font-bold shadow-sm";
+
+            if (viewName === 'dashboard') {
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                document.getElementById('view-dashboard').classList.add('flex');
+                document.getElementById('top-bar-title').innerText = "Live Marketplace Feed";
+            } else if (viewName === 'market') {
+                document.getElementById('view-market').classList.remove('hidden');
+                document.getElementById('top-bar-title').innerText = "Dynamic Escrow Task Pool";
+            } else if (viewName === 'agents') {
+                document.getElementById('view-agents').classList.remove('hidden');
+                document.getElementById('top-bar-title').innerText = "Agent Diagnostics Center";
+            } else if (viewName === 'onchain') {
+                document.getElementById('view-onchain').classList.remove('hidden');
+                document.getElementById('view-onchain').classList.add('flex');
+                document.getElementById('top-bar-title').innerText = "Block Explorer Ledger";
+            }
+            
+            render();
+        }
+
+        // Dark/Light Theme Switching
+        function toggleTheme() {
+            const htmlElement = document.documentElement;
+            const themeIcon = document.getElementById('theme-icon');
+            if (htmlElement.classList.contains('light')) {
+                htmlElement.classList.remove('light');
+                htmlElement.classList.add('dark');
+                themeIcon.innerText = "light_mode";
+                state.theme = 'dark';
+            } else {
+                htmlElement.classList.remove('dark');
+                htmlElement.classList.add('light');
+                themeIcon.innerText = "dark_mode";
+                state.theme = 'light';
+            }
+        }
+
+        // Render Everything
+        function render() {
+            renderTasks();
+            renderAgents();
+            renderEvents();
+            renderOnchainLogs();
+            renderStats();
+        }
+
+        // Filter and Search update
+        function updateFilters(type, value) {
+            state.filters[type] = value;
+            renderTasks();
+        }
+
+        // Render Marketplace / Catalog Tasks
+        function renderTasks() {
+            // Apply searches and filters
+            let filteredTasks = [...state.tasks];
+            
+            if (state.filters.category && state.filters.category !== 'ALL') {
+                filteredTasks = filteredTasks.filter(t => t.category === state.filters.category);
+            }
+            
+            if (state.filters.search && state.filters.search.trim() !== '') {
+                const searchQ = state.filters.search.toLowerCase();
+                filteredTasks = filteredTasks.filter(t => 
+                    t.title.toLowerCase().includes(searchQ) || 
+                    t.id.toLowerCase().includes(searchQ) ||
+                    t.desc.toLowerCase().includes(searchQ)
+                );
+            }
+
+            // Apply Sort
+            if (state.filters.sort === 'REWARD_DESC') {
+                filteredTasks.sort((a, b) => {
+                    const valA = a.rewardType === 'ETH' ? a.reward * 3000 : a.reward;
+                    const valB = b.rewardType === 'ETH' ? b.reward * 3000 : b.reward;
+                    return valB - valA;
+                });
+            } else if (state.filters.sort === 'REWARD_ASC') {
+                filteredTasks.sort((a, b) => {
+                    const valA = a.rewardType === 'ETH' ? a.reward * 3000 : a.reward;
+                    const valB = b.rewardType === 'ETH' ? b.reward * 3000 : b.reward;
+                    return valA - valB;
+                });
+            } else if (state.filters.sort === 'BIDS_DESC') {
+                filteredTasks.sort((a, b) => b.bids - a.bids);
+            } else if (state.filters.sort === 'NEWEST') {
+                filteredTasks.sort((a, b) => b.status === 'NEW' ? 1 : -1);
+            }
+
+            // 1. Render Dashboard Cards
+            const dashGrid = document.getElementById('task-cards-container');
+            dashGrid.innerHTML = '';
+            
+            if (filteredTasks.length === 0) {
+                dashGrid.innerHTML = `
+                    <div class="col-span-2 py-xl text-center text-outline dark:text-zinc-500 text-sm">
+                        No matching distributed computing tasks active.
+                    </div>
+                `;
+            }
+
+            filteredTasks.forEach(task => {
+                const pulseColor = task.status === 'NEW' ? 'bg-primary dark:bg-white' : 'bg-secondary dark:bg-cyan-400';
+                const pingColor = task.status === 'NEW' ? 'bg-primary dark:bg-zinc-600' : 'bg-secondary dark:bg-cyan-500';
+                
+                const card = document.createElement('div');
+                card.className = "group relative bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 hover:border-primary dark:hover:border-zinc-400 p-md rounded-lg transition-all bg-gradient-to-br from-surface-container-lowest to-surface-container-low/50 dark:from-zinc-900 dark:to-zinc-950 backdrop-blur-sm shadow-sm select-none page-transition";
+                
+                card.innerHTML = `
+                    <div class="absolute top-md right-md flex gap-2 items-center">
+                        <div class="w-2 h-2 ${pulseColor} rounded-full pulse-indicator"></div>
+                        <div class="absolute inset-0 w-2 h-2 ${pingColor} rounded-full animate-ping-subtle opacity-75"></div>
+                    </div>
+                    <div class="flex flex-col gap-sm">
+                        <div class="space-y-0">
+                            <span class="font-data-mono text-[10px] text-outline dark:text-zinc-500">ID: ${task.id}</span>
+                            <h3 class="font-headline text-lg font-bold leading-tight group-hover:text-secondary dark:group-hover:text-cyan-400 transition-colors dark:text-white truncate pr-6">${task.title}</h3>
+                        </div>
+                        <div class="flex flex-wrap gap-xs">
+                            ${task.tags.map(tag => `
+                                <span class="px-2 py-0.5 bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider rounded-sm">${tag}</span>
+                            `).join('')}
+                        </div>
+                        <div class="mt-md flex items-end justify-between">
+                            <div>
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Reward</p>
+                                <p class="font-data-mono text-lg text-primary dark:text-zinc-200 font-bold">${task.reward.toLocaleString()} ${task.rewardType}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Bids</p>
+                                <p class="font-data-mono text-base dark:text-zinc-300">${task.bids} Active</p>
+                            </div>
+                        </div>
+                        <div class="mt-sm pt-sm border-t border-outline-variant/30 dark:border-zinc-800/50 flex justify-between items-center">
+                            <span class="text-[10px] font-bold ${task.status === 'NEW' ? 'text-primary dark:text-white' : 'text-secondary dark:text-cyan-400'} uppercase tracking-widest">${task.status === 'NEW' ? 'JUST POSTED' : 'OPEN FOR BIDS'}</span>
+                            <button onclick="openSpecsModal('${task.id}')" class="text-xs font-bold underline underline-offset-4 hover:text-secondary dark:hover:text-cyan-400 transition-colors uppercase tracking-tighter dark:text-zinc-300">VIEW SPECS</button>
+                        </div>
+                    </div>
+                `;
+                dashGrid.appendChild(card);
+            });
+
+            // 2. Render Full Market Grid View
+            const catalogGrid = document.getElementById('catalog-tasks-grid');
+            if (catalogGrid) {
+                catalogGrid.innerHTML = '';
+                filteredTasks.forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = "p-md bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 hover:border-secondary dark:hover:border-cyan-500 rounded-xl space-y-md transition-all shadow-sm";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="font-data-mono text-[9px] text-outline dark:text-zinc-500">ID: ${task.id}</span>
+                                <h4 class="font-headline font-bold text-md dark:text-white">${task.title}</h4>
+                            </div>
+                            <span class="px-2 py-0.5 bg-secondary/10 dark:bg-cyan-500/20 text-secondary dark:text-cyan-400 text-[10px] font-bold uppercase rounded-sm">${task.category}</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2">${task.desc}</p>
+                        <div class="flex justify-between items-center pt-md border-t border-outline-variant dark:border-zinc-800">
+                            <div>
+                                <span class="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">Locked Pool Reward</span>
+                                <p class="font-data-mono text-md font-bold text-primary dark:text-zinc-200">${task.reward.toLocaleString()} ${task.rewardType}</p>
+                            </div>
+                            <button onclick="openSpecsModal('${task.id}')" class="px-md py-1.5 bg-primary dark:bg-zinc-100 text-on-primary dark:text-zinc-950 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity uppercase tracking-wider">
+                                SPEC DETAILS
+                            </button>
+                        </div>
+                    `;
+                    catalogGrid.appendChild(card);
+                });
+            }
+        }
+
+        // Render Active Agents (Sidebar + Detailed Grid View)
+        function renderAgents() {
+            // 1. Sidebar Panel rendering
+            const listElement = document.getElementById('dashboard-agents-list');
+            listElement.innerHTML = '';
+            
+            state.agents.forEach(agent => {
+                let statusColor = "text-secondary dark:text-cyan-400";
+                if (agent.status === 'OFFLINE') statusColor = "text-error";
+                else if (agent.status === 'IDLE_SCANNING') statusColor = "text-outline dark:text-zinc-500";
+                
+                const card = document.createElement('div');
+                card.className = "p-md bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg hover:border-primary dark:hover:border-zinc-600 transition-colors select-none";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-md">
+                            <div class="w-10 h-10 bg-surface-container dark:bg-zinc-800 flex items-center justify-center rounded-sm text-primary dark:text-zinc-300">
+                                <span class="material-symbols-outlined">${agent.avatar}</span>
+                            </div>
+                            <div>
+                                <p class="font-label text-sm font-bold dark:text-white">${agent.name}</p>
+                                <p class="font-data-mono text-[10px] text-outline dark:text-zinc-500">${agent.tier} Node</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] text-outline dark:text-zinc-500 font-bold">REP</p>
+                            <p class="font-data-mono text-sm text-primary dark:text-zinc-200 font-bold">${agent.rep}</p>
+                        </div>
+                    </div>
+                    <div class="mt-md flex justify-between items-center text-[10px] font-data-mono uppercase tracking-tighter">
+                        <span class="text-on-surface-variant dark:text-zinc-400">Win Rate: ${agent.winRate}%</span>
+                        <button onclick="openConfigModal('${agent.id}')" class="font-bold hover:underline cursor-pointer ${statusColor}">${agent.status}</button>
+                    </div>
+                `;
+                listElement.appendChild(card);
+            });
+
+            // Update stats values in UI
+            document.getElementById('active-agents-count').innerText = state.agents.length;
+
+            // 2. Detailed grid view rendering
+            const gridView = document.getElementById('detailed-agents-grid');
+            if (gridView) {
+                gridView.innerHTML = '';
+                
+                // Set page widgets stats
+                document.getElementById('widget-deployed-count').innerText = `${state.agents.length} Active`;
+                const avgWin = state.agents.reduce((acc, curr) => acc + curr.winRate, 0) / state.agents.length;
+                document.getElementById('widget-avg-success').innerText = `${avgWin.toFixed(1)}%`;
+                const avgRep = state.agents.reduce((acc, curr) => acc + curr.rep, 0) / state.agents.length;
+                document.getElementById('widget-avg-rep').innerText = `${avgRep.toFixed(1)} REP`;
+                
+                const totalEarnedEth = state.agents.reduce((acc, curr) => acc + curr.earningsETH, 0);
+                const totalEarnedUsdc = state.agents.reduce((acc, curr) => acc + curr.earningsUSDC, 0);
+                document.getElementById('widget-total-earnings').innerText = `${totalEarnedEth.toFixed(2)} ETH + $${totalEarnedUsdc.toLocaleString()}`;
+
+                state.agents.forEach(agent => {
+                    let badgeColor = "bg-secondary/10 dark:bg-cyan-500/20 text-secondary dark:text-cyan-400";
+                    if (agent.status === 'OFFLINE') badgeColor = "bg-red-500/10 text-red-500";
+                    else if (agent.status === 'IDLE_SCANNING') badgeColor = "bg-zinc-500/10 text-zinc-400";
+
+                    const card = document.createElement('div');
+                    card.className = "bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 p-lg rounded-xl space-y-md shadow-sm relative overflow-hidden page-transition";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-md">
+                                <div class="w-12 h-12 rounded-lg bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-primary dark:text-zinc-200">
+                                    <span class="material-symbols-outlined text-[24px]">${agent.avatar}</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-headline font-bold text-sm dark:text-white">${agent.name}</h4>
+                                    <p class="font-data-mono text-[10px] text-outline dark:text-zinc-500">${agent.specialty} [${agent.tier}]</p>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 text-[9px] font-bold rounded-sm uppercase ${badgeColor}">${agent.status}</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">${agent.description}</p>
+                        
+                        <!-- Rep Slider Bar Gauge -->
+                        <div class="space-y-xs pt-sm">
+                            <div class="flex justify-between text-[10px] font-data-mono">
+                                <span class="text-outline dark:text-zinc-500">Reputation Level</span>
+                                <span class="text-primary dark:text-zinc-300 font-bold">${agent.rep} / 100 REP</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-surface-container dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-secondary dark:bg-cyan-400" style="width: ${agent.rep}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Secondary telemetry -->
+                        <div class="grid grid-cols-2 gap-md text-xs font-data-mono border-t border-outline-variant dark:border-zinc-800 pt-md">
+                            <div>
+                                <span class="text-[9px] text-outline dark:text-zinc-500 font-bold block uppercase">Jobs Audit Complete</span>
+                                <span class="text-primary dark:text-zinc-200 font-bold">${agent.jobsCompleted} Jobs</span>
+                            </div>
+                            <div>
+                                <span class="text-[9px] text-outline dark:text-zinc-500 font-bold block uppercase">Accumulated Compensation</span>
+                                <span class="text-secondary dark:text-cyan-400 font-bold truncate block">${agent.earningsETH.toFixed(2)} ETH / $${agent.earningsUSDC}</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-md flex gap-md">
+                            <button onclick="openConfigModal('${agent.id}')" class="flex-1 py-1.5 border border-outline-variant dark:border-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs font-bold rounded-lg uppercase tracking-wider text-on-surface dark:text-zinc-200 transition-colors">
+                                CONFIGURE
+                            </button>
+                        </div>
+                    `;
+                    gridView.appendChild(card);
+                });
+            }
+        }
+
+        // Render live system event logs in the bottom terminal
+        function renderEvents() {
+            const terminal = document.getElementById('terminal-event-log');
+            terminal.innerHTML = '';
+            
+            state.events.forEach(log => {
+                let colorClass = "text-white dark:text-zinc-200";
+                if (log.type === 'secondary') colorClass = "text-secondary-fixed dark:text-cyan-400";
+                else if (log.type === 'primary') colorClass = "text-primary-fixed dark:text-zinc-400";
+                else if (log.type === 'error') colorClass = "text-error-container dark:text-red-400";
+
+                const div = document.createElement('div');
+                div.className = "flex gap-md select-text";
+                div.innerHTML = `
+                    <span class="opacity-40 shrink-0 text-white">${log.time}</span>
+                    <span class="${colorClass}">${log.text}</span>
+                `;
+                terminal.appendChild(div);
+            });
+            // Auto scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Render Onchain Logs
+        function renderOnchainLogs() {
+            const tbody = document.getElementById('onchain-table-rows');
+            if (tbody) {
+                tbody.innerHTML = '';
+                
+                state.onchainLogs.forEach((log, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-surface-container-low dark:hover:bg-zinc-800/50 cursor-pointer transition-colors";
+                    tr.onclick = () => selectOnchainTx(index, tr);
+                    
+                    let statusBadge = `<span class="text-secondary dark:text-cyan-400 font-bold">SUCCESS</span>`;
+                    if (log.status === 'FAILED') statusBadge = `<span class="text-error font-bold">FAILED</span>`;
+
+                    tr.innerHTML = `
+                        <td class="py-3.5 px-lg text-primary dark:text-white font-bold">#${log.block.toLocaleString()}</td>
+                        <td class="py-3.5 px-md font-bold">${log.method}</td>
+                        <td class="py-3.5 px-md text-on-surface-variant dark:text-zinc-400">${log.target}</td>
+                        <td class="py-3.5 px-md">${log.gas}</td>
+                        <td class="py-3.5 px-md">${statusBadge}</td>
+                        <td class="py-3.5 px-lg text-right text-outline dark:text-zinc-500">${log.hash}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function selectOnchainTx(index, trElement) {
+            // Remove selection styles from all rows
+            const rows = document.querySelectorAll('#onchain-table-rows tr');
+            rows.forEach(r => r.classList.remove('bg-surface-container-high', 'dark:bg-zinc-800'));
+
+            // Highlight chosen row
+            trElement.classList.add('bg-surface-container-high', 'dark:bg-zinc-800');
+
+            const log = state.onchainLogs[index];
+            const viewer = document.getElementById('tx-json-viewer');
+            
+            const rawJson = {
+                blockNumber: log.block,
+                transactionHash: log.hash + "de00a89d7d3d",
+                status: log.status,
+                methodCalled: log.method,
+                scopeTarget: log.target,
+                gasPrice: "34.2 Gwei",
+                gasLimit: "500,000",
+                gasUsed: log.gas,
+                sender: "0x71C24151a6E39b1B33e7dAdF4E18dF8E1Cb3e44b",
+                contractVerification: "VERIFIED_COMPILER_V0.8.20",
+                timestamp: "2026-05-18T22:50:04Z",
+                networkChainId: "taskra-mainnet-l2"
+            };
+
+            // Custom colored printout
+            let output = JSON.stringify(rawJson, null, 4);
+            output = output.replace(/"([^"]+)":/g, '<span class="text-cyan-400">"$1"</span>:');
+            output = output.replace(/: "([^"]+)"/g, ': <span class="text-amber-300">"$1"</span>');
+            output = output.replace(/: (\d+)/g, ': <span class="text-emerald-400">$1</span>');
+            
+            viewer.innerHTML = output;
+        }
+
+        // Render dynamic stats (with Sparkline Draw)
+        function renderStats() {
+            document.getElementById('sidebar-wallet-addr').innerText = state.wallet.address;
+            document.getElementById('sidebar-wallet-bal').innerText = `${state.wallet.balanceETH.toFixed(2)} ETH`;
+            
+            document.getElementById('footer-rewards').innerText = state.stats.totalRewardsETH.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('footer-tps').innerText = state.stats.tps.toFixed(1);
+            document.getElementById('footer-success').innerText = state.stats.successRate.toFixed(2);
+            document.getElementById('footer-volume').innerText = `${state.stats.taskVolume.toFixed(1)}M`;
+            
+            // Draw sparklines
+            drawSparkline('sparkline-rewards', state.charts.rewards);
+            drawSparkline('sparkline-tps', state.charts.tps);
+            drawSparkline('sparkline-volume', state.charts.volume);
+        }
+
+        function drawSparkline(svgId, points) {
+            const svg = document.getElementById(svgId);
+            if (!svg) return;
+            const width = 100;
+            const height = 40;
+            const max = Math.max(...points, 1);
+            const min = Math.min(...points, 0);
+            const range = max - min;
+            
+            let pathD = `M 0 ${height - ((points[0] - min) / range) * (height - 10) - 5}`;
+            for (let i = 1; i < points.length; i++) {
+                const x = (i / (points.length - 1)) * width;
+                const y = height - ((points[i] - min) / range) * (height - 10) - 5;
+                pathD += ` L ${x} ${y}`;
+            }
+            
+            const path = svg.querySelector('path:not(.fill-path)');
+            if (path) path.setAttribute('d', pathD);
+            
+            const fillPath = svg.querySelector('path.fill-path');
+            if (fillPath) {
+                const fillD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
+                fillPath.setAttribute('d', fillD);
+            }
+        }
+
+        // --- Modals Logic ---
+        function openModal(id) {
+            const modal = document.getElementById(`modal-${id}`);
+            modal.classList.remove('hidden');
+        }
+        function closeModal(id) {
+            const modal = document.getElementById(`modal-${id}`);
+            modal.classList.add('hidden');
+        }
+
+        // Deploy agent configuration helpers
+        function openDeployModal() {
+            generateAgentName();
+            updateDeployCost();
+            openModal('deploy');
+        }
+
+        function generateAgentName() {
+            const prefixes = ['Aether', 'Neural', 'Cyber', 'Byte', 'Sentinel', 'Crypto', 'Quant', 'Giga', 'Sol', 'Hyper'];
+            const suffixes = ['Vanguard', 'Xero', 'Mind', 'Watcher', 'Arb', 'Shield', 'Synth', 'Node', 'Pulse', 'Core'];
+            const randomName = prefixes[Math.floor(Math.random() * prefixes.length)] + "_" + suffixes[Math.floor(Math.random() * suffixes.length)];
+            document.getElementById('deploy-name').value = randomName;
+        }
+
+        function updateDeployCost() {
+            const tier = document.getElementById('deploy-tier').value;
+            const repElement = document.getElementById('diagnostics-rep');
+            
+            if (tier === 'Standard') {
+                repElement.innerText = '75.0 REP';
+            } else if (tier === 'Advanced') {
+                repElement.innerText = '88.0 REP';
+            } else if (tier === 'Elite') {
+                repElement.innerText = '96.0 REP';
+            }
+        }
+
+        function handleDeployAgent(event) {
+            event.preventDefault();
+            const name = document.getElementById('deploy-name').value.trim();
+            const specialty = document.getElementById('deploy-specialty').value;
+            const tier = document.getElementById('deploy-tier').value;
+            
+            let cost = 0.05;
+            let rep = 75.0;
+            let winRate = 78;
+            let avatar = 'smart_toy';
+            
+            if (tier === 'Advanced') {
+                cost = 0.15;
+                rep = 88.0;
+                winRate = 86;
+                avatar = 'neurology';
+            } else if (tier === 'Elite') {
+                cost = 0.50;
+                rep = 96.0;
+                winRate = 95;
+                avatar = 'memory';
+            }
+
+            if (state.wallet.balanceETH < cost) {
+                alert("Insufficient ETH balance in connected wallet!");
+                return;
+            }
+
+            // Deduct Eth
+            state.wallet.balanceETH -= cost;
+            
+            const newAgent = {
+                id: `AG-00${state.agents.length + 1}`,
+                name: name,
+                specialty: specialty,
+                tier: tier,
+                rep: rep,
+                winRate: winRate,
+                status: 'ACTIVE_BIDDING',
+                strategy: 'Balanced',
+                jobsCompleted: 0,
+                earningsETH: 0.00,
+                earningsUSDC: 0,
+                avatar: avatar,
+                description: `Self-learning autonomous node deployed under ${tier} configurations, focusing on ${specialty} workloads.`
+            };
+
+            state.agents.push(newAgent);
+            
+            // Generate block log
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `DEPLOY: Deployed agent ${name} under specialty "${specialty}" (${cost} ETH deducted)`,
+                type: 'secondary'
+            });
+
+            // Log on chain
+            state.blockHeight += 1;
+            state.onchainLogs.unshift({
+                block: state.blockHeight,
+                method: 'DeployAgent',
+                target: name,
+                gas: '1,450,220',
+                status: 'SUCCESS',
+                hash: '0x' + Math.random().toString(16).slice(2, 8) + '...' + Math.random().toString(16).slice(2, 6)
+            });
+
+            // Wallet TX record
+            state.wallet.transactions.unshift({
+                type: 'Agent Deploy',
+                asset: 'ETH',
+                amount: cost,
+                time: time,
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            closeModal('deploy');
+            render();
+        }
+
+        // Wallet Details / Faucet trigger
+        function openWalletModal() {
+            renderWalletDetails();
+            openModal('wallet');
+        }
+
+        function renderWalletDetails() {
+            document.getElementById('wallet-eth-bal').innerText = `${state.wallet.balanceETH.toFixed(2)} ETH`;
+            document.getElementById('wallet-usdc-bal').innerText = `${state.wallet.balanceUSDC.toLocaleString()} USDC`;
+            
+            const list = document.getElementById('wallet-tx-history');
+            list.innerHTML = '';
+            
+            state.wallet.transactions.forEach(tx => {
+                const color = tx.type.includes('Reward') || tx.type.includes('Faucet') ? 'text-secondary dark:text-cyan-400' : 'text-primary dark:text-white';
+                const sign = tx.type.includes('Reward') || tx.type.includes('Faucet') ? '+' : '-';
+                
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center p-md hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors";
+                item.innerHTML = `
+                    <div>
+                        <p class="text-xs font-bold dark:text-zinc-200">${tx.type}</p>
+                        <p class="font-data-mono text-[9px] text-outline dark:text-zinc-500">${tx.time} | Tx: ${tx.hash}</p>
+                    </div>
+                    <span class="font-data-mono text-xs font-bold ${color}">${sign}${tx.amount} ${tx.asset}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function triggerFaucet() {
+            const now = Date.now();
+            if (now - state.lastFaucetTime < 30000) {
+                alert("Faucet cooling down. Please wait 30 seconds before calling sandbox faucet again.");
+                return;
+            }
+            state.lastFaucetTime = now;
+            state.wallet.balanceETH += 5.0;
+            state.wallet.balanceUSDC += 1000;
+            
+            const time = new Date().toLocaleTimeString();
+            state.wallet.transactions.unshift({
+                type: 'Sandbox Faucet Claim',
+                asset: 'ETH & USDC',
+                amount: 5,
+                time: time,
+                hash: '0xfc' + Math.random().toString(16).slice(2, 6)
+            });
+
+            state.events.push({
+                time: time,
+                text: `FAUCET: Faucet credited wallet (+5.0 ETH, +1,000 USDC)`,
+                type: 'primary'
+            });
+
+            renderWalletDetails();
+            render();
+        }
+
+        function copyWalletAddr() {
+            navigator.clipboard.writeText(state.wallet.fullAddress);
+            alert("Sandbox Address Copied to Clipboard!");
+        }
+
+        // Specs detail modal trigger
+        function openSpecsModal(taskId) {
+            state.activeSpecsTaskId = taskId;
+            const task = state.tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('specs-modal-id').innerText = `ID: ${task.id}`;
+            document.getElementById('specs-modal-headline').innerText = task.title;
+            document.getElementById('specs-modal-desc').innerText = task.desc;
+            document.getElementById('specs-modal-params').innerText = task.specs;
+            
+            // Set status
+            const badge = document.getElementById('specs-modal-status-badge');
+            if (task.status === 'NEW') {
+                badge.innerHTML = `<span class="px-2 py-0.5 bg-primary dark:bg-white text-on-primary dark:text-zinc-900 text-[10px] font-bold uppercase rounded-sm">JUST POSTED</span>`;
+            } else {
+                badge.innerHTML = `<span class="px-2 py-0.5 bg-secondary/15 text-secondary dark:text-cyan-400 text-[10px] font-bold uppercase rounded-sm">OPEN FOR BIDS</span>`;
+            }
+
+            // Set tags
+            const tagsBox = document.getElementById('specs-modal-tags');
+            tagsBox.innerHTML = task.tags.map(tag => `
+                <span class="px-2 py-0.5 bg-surface-container-low dark:bg-zinc-800 text-[9px] font-bold uppercase dark:text-zinc-300 rounded-sm">${tag}</span>
+            `).join('');
+
+            // Active Bids list
+            document.getElementById('specs-modal-bidcount').innerText = `${task.bids} Bids Submitted`;
+            
+            const list = document.getElementById('specs-modal-bids-list');
+            list.innerHTML = '';
+            
+            // Generate some random bidding agents
+            const otherAgents = [
+                { name: 'Alpha_Zero', rep: 94.2, bid: (task.reward * 0.9).toFixed(3) },
+                { name: 'Hash_Vault', rep: 89.1, bid: (task.reward * 0.95).toFixed(3) },
+                { name: 'Solidity_Watcher', rep: 98.4, bid: (task.reward * 0.88).toFixed(3) }
+            ];
+
+            otherAgents.forEach(ag => {
+                const row = document.createElement('div');
+                row.className = "flex justify-between items-center p-sm px-md text-xs font-data-mono hover:bg-surface-container-low dark:hover:bg-zinc-900/50";
+                row.innerHTML = `
+                    <div class="flex items-center gap-md">
+                        <span class="font-bold dark:text-zinc-200">${ag.name}</span>
+                        <span class="text-[9px] text-outline">REP: ${ag.rep}</span>
+                    </div>
+                    <span class="text-primary dark:text-cyan-400 font-bold">${ag.bid} ${task.rewardType}</span>
+                `;
+                list.appendChild(row);
+            });
+
+            // Populate eligible user agents selector
+            const select = document.getElementById('specs-select-agent');
+            select.innerHTML = '';
+            
+            const idleUserAgents = state.agents.filter(a => a.status !== 'OFFLINE');
+            if (idleUserAgents.length === 0) {
+                select.innerHTML = `<option value="">No Active Agents Ready</option>`;
+            } else {
+                idleUserAgents.forEach(a => {
+                    select.innerHTML += `<option value="${a.id}">${a.name} (${a.tier} - ${a.specialty})</option>`;
+                });
+            }
+
+            openModal('specs');
+        }
+
+        function handleManualBid() {
+            const agentId = document.getElementById('specs-select-agent').value;
+            if (!agentId) {
+                alert("Please select or deploy an active agent node first.");
+                return;
+            }
+            
+            const agent = state.agents.find(a => a.id === agentId);
+            const task = state.tasks.find(t => t.id === state.activeSpecsTaskId);
+            if (!agent || !task) return;
+
+            // Submit execution bid
+            agent.status = 'ACTIVE_BIDDING';
+            task.bids += 1;
+            
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `ALLOCATION: Allocated agent "${agent.name}" to execute specs job "${task.title}"`,
+                type: 'white'
+            });
+
+            state.blockHeight += 1;
+            state.onchainLogs.unshift({
+                block: state.blockHeight,
+                method: 'SubmitBid',
+                target: task.id,
+                gas: '75,120',
+                status: 'SUCCESS',
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            // Simulate instant success solving after allocation
+            setTimeout(() => {
+                completeTask(task, agent);
+            }, 1500);
+
+            closeModal('specs');
+            render();
+        }
+
+        // Completes task & transfers reward
+        function completeTask(task, agent) {
+            // Check if already closed
+            const index = state.tasks.findIndex(t => t.id === task.id);
+            if (index === -1) return;
+
+            // Reward agent & user
+            if (task.rewardType === 'ETH') {
+                agent.earningsETH += task.reward;
+                state.wallet.balanceETH += task.reward;
+                state.stats.totalRewardsETH += task.reward;
+                state.charts.rewards.push(state.stats.totalRewardsETH);
+                state.charts.rewards.shift();
+            } else {
+                agent.earningsUSDC += task.reward;
+                state.wallet.balanceUSDC += task.reward;
+                state.stats.totalRewardsUSDC += task.reward;
+            }
+            
+            agent.jobsCompleted += 1;
+            agent.rep = Math.min(100.0, agent.rep + 0.5);
+
+            // Remove task from catalog/market
+            state.tasks.splice(index, 1);
+
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `JOB_SUCCESS: Agent ${agent.name} solved job "${task.title}" (+${task.reward} ${task.rewardType})`,
+                type: 'secondary'
+            });
+
+            state.blockHeight += 1;
+            state.onchainLogs.unshift({
+                block: state.blockHeight,
+                method: 'SettleReward',
+                target: agent.name,
+                gas: '220,105',
+                status: 'SUCCESS',
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            state.wallet.transactions.unshift({
+                type: `Reward: ${task.title}`,
+                asset: task.rewardType,
+                amount: task.reward,
+                time: time,
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            render();
+        }
+
+        // Post custom task from Live Market Page
+        function handlePostTask(event) {
+            event.preventDefault();
+            const title = document.getElementById('post-task-title').value.trim();
+            const category = document.getElementById('post-task-category').value;
+            const reward = parseFloat(document.getElementById('post-task-reward').value);
+            const asset = document.getElementById('post-task-asset').value;
+            const desc = document.getElementById('post-task-desc').value.trim();
+
+            const taskId = `TK-${Math.floor(100 + Math.random() * 899)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+
+            // Subtract reward from User Wallet to deposit into Smart Escrow
+            if (asset === 'ETH') {
+                if (state.wallet.balanceETH < reward) {
+                    alert("Insufficient ETH balance to lock into Escrow!");
+                    return;
+                }
+                state.wallet.balanceETH -= reward;
+            } else {
+                if (state.wallet.balanceUSDC < reward) {
+                    alert("Insufficient USDC balance to lock into Escrow!");
+                    return;
+                }
+                state.wallet.balanceUSDC -= reward;
+            }
+
+            const newTask = {
+                id: taskId,
+                title: title,
+                category: category,
+                tags: [category, asset],
+                reward: reward,
+                rewardType: asset,
+                bids: 0,
+                status: 'NEW',
+                desc: desc,
+                specs: `Instruction hash: md5-${Math.random().toString(16).slice(2, 10)}\nGas Escrow Vault: LOCKED\nNetwork Compatibility: Global Distributed`
+            };
+
+            state.tasks.push(newTask);
+
+            // Log event
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `TASK_POSTED: Locked ${reward} ${asset} escrow. Posted "${title}" (${taskId})`,
+                type: 'white'
+            });
+
+            state.blockHeight += 1;
+            state.onchainLogs.unshift({
+                block: state.blockHeight,
+                method: 'CreateTask',
+                target: taskId,
+                gas: '342,000',
+                status: 'SUCCESS',
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            state.wallet.transactions.unshift({
+                type: `Escrow Lock: ${title}`,
+                asset: asset,
+                amount: reward,
+                time: time,
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            // Reset Form fields
+            document.getElementById('post-task-form').reset();
+            render();
+        }
+
+        // Config agent drawer helpers
+        function openConfigModal(agentId) {
+            state.activeConfiguringAgentId = agentId;
+            const agent = state.agents.find(a => a.id === agentId);
+            if (!agent) return;
+
+            document.getElementById('config-modal-agentname').innerText = `Configure ${agent.name}`;
+            document.getElementById('config-agent-status').value = agent.status;
+            document.getElementById('config-agent-strategy').value = agent.strategy;
+            document.getElementById('config-agent-jobs').innerText = `${agent.jobsCompleted} Solved Jobs`;
+            document.getElementById('config-agent-earnings').innerText = `${agent.earningsETH.toFixed(2)} ETH + $${agent.earningsUSDC.toLocaleString()}`;
+
+            // Next tier checks
+            const box = document.getElementById('config-agent-upgrade-box');
+            if (agent.tier === 'Standard') {
+                box.classList.remove('hidden');
+                document.getElementById('config-agent-next-tier').innerText = 'Advanced Node';
+                document.getElementById('config-upgrade-cost').innerText = '0.10 ETH';
+            } else if (agent.tier === 'Advanced') {
+                box.classList.remove('hidden');
+                document.getElementById('config-agent-next-tier').innerText = 'Elite Node';
+                document.getElementById('config-upgrade-cost').innerText = '0.35 ETH';
+            } else {
+                box.classList.add('hidden'); // Elite has reached maximum computing level
+            }
+
+            openModal('agent-config');
+        }
+
+        function upgradeAgentTier() {
+            const agent = state.agents.find(a => a.id === state.activeConfiguringAgentId);
+            if (!agent) return;
+
+            let cost = 0;
+            let nextTier = '';
+            
+            if (agent.tier === 'Standard') {
+                cost = 0.10;
+                nextTier = 'Advanced';
+            } else if (agent.tier === 'Advanced') {
+                cost = 0.35;
+                nextTier = 'Elite';
+            }
+
+            if (state.wallet.balanceETH < cost) {
+                alert("Insufficient ETH balance for upgrade fees!");
+                return;
+            }
+
+            state.wallet.balanceETH -= cost;
+            agent.tier = nextTier;
+            agent.rep = Math.min(100.0, agent.rep + 6.0);
+            agent.winRate = Math.min(99, agent.winRate + 5);
+            
+            if (nextTier === 'Advanced') agent.avatar = 'neurology';
+            if (nextTier === 'Elite') agent.avatar = 'memory';
+
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `UPGRADE: Upgraded agent "${agent.name}" compute logic to ${nextTier} Tier (-${cost} ETH)`,
+                type: 'secondary'
+            });
+
+            closeModal('agent-config');
+            render();
+        }
+
+        function decommissionAgent() {
+            const index = state.agents.findIndex(a => a.id === state.activeConfiguringAgentId);
+            if (index === -1) return;
+
+            const agent = state.agents[index];
+            let refund = 0.025; // standard refund
+            if (agent.tier === 'Advanced') refund = 0.075;
+            if (agent.tier === 'Elite') refund = 0.25;
+
+            state.wallet.balanceETH += refund;
+            
+            const time = new Date().toLocaleTimeString();
+            state.events.push({
+                time: time,
+                text: `DECOMMISSION: Purged agent "${agent.name}" runtime. Refunded ${refund} ETH`,
+                type: 'error'
+            });
+
+            state.wallet.transactions.unshift({
+                type: `Decommission: ${agent.name}`,
+                asset: 'ETH',
+                amount: refund,
+                time: time,
+                hash: '0x' + Math.random().toString(16).slice(2, 8)
+            });
+
+            state.agents.splice(index, 1);
+            closeModal('agent-config');
+            render();
+        }
+
+        // --- Background Live Simulation Loop ---
+        setInterval(() => {
+            if (!state.simulationActive) return;
+            
+            // 1. Slightly oscillate system TPS throughput
+            const tpsFluctuation = (Math.random() - 0.5) * 1.8;
+            state.stats.tps = Math.max(8.0, Math.min(30.0, state.stats.tps + tpsFluctuation));
+            state.charts.tps.push(state.stats.tps);
+            state.charts.tps.shift();
+
+            // 2. Chance of a new computational task posted by random network builders
+            if (Math.random() < 0.18) {
+                const titles = [
+                    'AMM Swap Path Optimizer',
+                    'Zero-Knowledge Proof Verifier',
+                    'Chainlink Feed Latency Checker',
+                    'ERC-20 Vulnerability Fuzzer',
+                    'Epoch Block Propagation Audit'
+                ];
+                const categories = ['Strategy', 'Security', 'Infrastructure', 'Security', 'Infrastructure'];
+                const index = Math.floor(Math.random() * titles.length);
+                
+                const id = `TK-${Math.floor(100 + Math.random() * 899)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+                const rewardType = Math.random() > 0.5 ? 'ETH' : 'USDC';
+                const reward = rewardType === 'ETH' ? parseFloat((0.1 + Math.random() * 0.8).toFixed(2)) : Math.floor(200 + Math.random() * 1500);
+
+                const newTask = {
+                    id: id,
+                    title: titles[index],
+                    category: categories[index],
+                    tags: [categories[index], rewardType],
+                    reward: reward,
+                    rewardType: rewardType,
+                    bids: Math.floor(Math.random() * 6),
+                    status: 'NEW',
+                    desc: `Automatically dispatched target contract computing specification. Run sanity verification constraints and assert execution validity.`,
+                    specs: `Gas escrows: LOCKED\nMin Reputation: 80 REP\nTimeout: 12,000 blocks`
+                };
+                
+                state.tasks.push(newTask);
+                
+                const time = new Date().toLocaleTimeString();
+                state.events.push({
+                    time: time,
+                    text: `TASK_POSTED: External builder broadcasted "${titles[index]}" reward: ${reward} ${rewardType}`,
+                    type: 'white'
+                });
+            }
+
+            // 3. Simulated bid placement on existing tasks
+            if (Math.random() < 0.25 && state.tasks.length > 0) {
+                const randomTask = state.tasks[Math.floor(Math.random() * state.tasks.length)];
+                randomTask.bids += 1;
+                
+                const externalAgents = ['Neura_Link', 'Cyber_Shield', 'Hash_Lock', 'Byte_Vanguard', 'Sol_Pulse'];
+                const randomBot = externalAgents[Math.floor(Math.random() * externalAgents.length)];
+                const time = new Date().toLocaleTimeString();
+                
+                state.events.push({
+                    time: time,
+                    text: `BID_PLACED: ${randomBot} submitted contract bid on ${randomTask.id} (${(randomTask.reward * 0.92).toFixed(2)} ${randomTask.rewardType})`,
+                    type: 'secondary'
+                });
+            }
+
+            // 4. Block mined tick (every ~10-12s simulated)
+            if (Math.random() < 0.1) {
+                state.blockHeight += 1;
+                const time = new Date().toLocaleTimeString();
+                
+                state.events.push({
+                    time: time,
+                    text: `SYNC: Block #${state.blockHeight.toLocaleString()} successfully minted on L2 consensus`,
+                    type: 'primary'
+                });
+
+                // Add to block ledger grid
+                const methods = ['SubmitBid', 'CreateTask', 'SettleReward', 'DeployAgent'];
+                const randomMethod = methods[Math.floor(Math.random() * methods.length)];
+                
+                state.onchainLogs.unshift({
+                    block: state.blockHeight,
+                    method: randomMethod,
+                    target: '0x' + Math.random().toString(16).slice(2, 6) + '...' + Math.random().toString(16).slice(2, 4),
+                    gas: Math.floor(40000 + Math.random() * 800000).toLocaleString(),
+                    status: 'SUCCESS',
+                    hash: '0x' + Math.random().toString(16).slice(2, 8)
+                });
+                
+                if (state.onchainLogs.length > 30) state.onchainLogs.pop();
+            }
+
+            // 5. Chance of user bidding agent completing active jobs autonomously
+            if (Math.random() < 0.15 && state.tasks.length > 0) {
+                const biddingAgents = state.agents.filter(a => a.status === 'ACTIVE_BIDDING');
+                if (biddingAgents.length > 0) {
+                    const agent = biddingAgents[Math.floor(Math.random() * biddingAgents.length)];
+                    const openTask = state.tasks.find(t => t.status === 'OPEN' || t.status === 'NEW');
+                    if (openTask) {
+                        completeTask(openTask, agent);
+                    }
+                }
+            }
+
+            render();
+        }, 3500);
+
+        // Initial setup execution
+        window.addEventListener('DOMContentLoaded', () => {
+            setView('dashboard');
+            render();
+        });
+    </script>
+</body>
+</html>
