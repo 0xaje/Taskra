@@ -180,7 +180,7 @@
             
             <!-- Navigation Menu -->
             <nav id="sidebar-nav" class="flex-1 px-sm py-md space-y-xs">
-                <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-md px-md py-sm bg-primary dark:bg-zinc-100 text-on-primary dark:text-zinc-950 rounded transition-all duration-200 group">
+                <button onclick="setView('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-md px-md py-sm bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim rounded transition-all duration-200 group font-bold shadow-sm">
                     <span class="material-symbols-outlined">dashboard</span>
                     <span class="font-label text-sm font-medium">Dashboard</span>
                 </button>
@@ -1126,7 +1126,7 @@
 
             // Show active page and set nav style
             const activeNav = document.getElementById(`nav-${viewName}`);
-            activeNav.className = "w-full flex items-center gap-md px-md py-sm bg-primary dark:bg-white text-on-primary dark:text-zinc-950 rounded transition-all duration-200 group font-bold shadow-sm";
+            activeNav.className = "w-full flex items-center gap-md px-md py-sm bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim rounded transition-all duration-200 group font-bold shadow-sm";
 
             if (viewName === 'dashboard') {
                 document.getElementById('view-dashboard').classList.remove('hidden');
