@@ -16,6 +16,7 @@
     "@taskra/types": "workspace:*",
     "bullmq": "^5.76.10",
     "dotenv": "^17.4.2",
+    "ethers": "^6.13.0",
     "fastify": "^4.26.2",
     "fastify-plugin": "^5.1.0",
     "ioredis": "^5.10.1",

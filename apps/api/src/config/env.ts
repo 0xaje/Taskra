@@ -13,6 +13,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url({ message: "DATABASE_URL must be a valid PostgreSQL connection string" }),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   SOMNIA_RPC_URL: z.string().url().default('https://rpc.somnia.network'),
+  SOMNIA_WS_URL: z.string().url().default('wss://rpc.somnia.network'),
+  TASK_FACTORY_ADDRESS: z.string().default('0x0000000000000000000000000000000000000000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

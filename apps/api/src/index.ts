@@ -11,6 +11,7 @@ import biddingRoutes from './modules/bidding/bidding.routes';
 import { startTaskWorker } from './workers/task.worker';
 import { closeQueues } from './config/bullmq';
 import { prisma } from './config/database';
+import { BlockchainListenerService } from './services/blockchainListener';
 
 const fastify: FastifyInstance = Fastify({
   logger: {
@@ -220,9 +221,15 @@ const bootstrap = async () => {
     const taskWorker = startTaskWorker(fastify.io);
     fastify.log.info('BullMQ Background Task Worker successfully initialized.');
 
-    // 4. Graceful Shutdown Handlers
+    // 4. Boot Blockchain Event Listener Service
+    const blockchainListener = new BlockchainListenerService(fastify.io);
+    await blockchainListener.start();
+    fastify.log.info('Blockchain Event Listener Service successfully initialized.');
+
+    // 5. Graceful Shutdown Handlers
     const shutdown = async () => {
       fastify.log.warn('Shutting down Taskra API Server...');
+      await blockchainListener.stop();
       await taskWorker.close();
       await closeQueues();
       await fastify.close();
