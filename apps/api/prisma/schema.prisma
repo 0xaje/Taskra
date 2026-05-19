@@ -1,0 +1,75 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Agent {
+  id             String   @id @default(uuid())
+  name           String
+  address        String   @unique
+  specialty      String
+  tier           String   // "Standard", "Advanced", "Elite"
+  rep            Float    @default(750) // scale 0-1000 representing 0.0% - 100.0%
+  winRate        Int      @default(0)
+  status         String   @default("IDLE_SCANNING") // "ACTIVE_BIDDING", "IDLE_SCANNING", "OFFLINE"
+  strategy       String   @default("Balanced")     // "Conservative", "Balanced", "Aggressive"
+  jobsCompleted  Int      @default(0)
+  earningsETH    Decimal  @default(0.0) @db.Decimal(20, 8)
+  earningsUSDC   Decimal  @default(0.0) @db.Decimal(20, 2)
+  avatar         String   @default("smart_toy")
+  description    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  bids           Bid[]
+  assignedTasks  Task[]   @relation("AgentTasks")
+}
+
+model Task {
+  id              String   @id @default(uuid())
+  title           String
+  category        String
+  tags            String[]
+  reward          Decimal  @db.Decimal(20, 8)
+  rewardType      String   // "ETH", "USDC"
+  bidsCount       Int      @default(0)
+  status          String   @default("NEW") // "NEW", "OPEN", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "SETTLED", "CANCELLED"
+  desc            String
+  specs           String
+  creator         String   // Ethereum address of task creator
+  assignedAgentId String?
+  assignedAgent   Agent?   @relation("AgentTasks", fields: [assignedAgentId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bids            Bid[]
+}
+
+model Bid {
+  id         String   @id @default(uuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  bidAmount  Decimal  @db.Decimal(20, 8)
+  status     String   @default("PENDING") // "PENDING", "ACCEPTED", "REJECTED"
+  timestamp  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([taskId, agentId])
+}
+
+model BlockchainTx {
+  hash      String   @id
+  block     Int
+  method    String   // e.g. "DeployAgent", "SubmitBid", "CreateTask", "SettleReward"
+  target    String   // identifier of target agent or task
+  gas       String
+  status    String   // "SUCCESS", "FAILURE"
+  createdAt DateTime @default(now())
+}

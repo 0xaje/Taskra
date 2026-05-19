@@ -11,7 +11,9 @@ export class TaskraClient {
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers);
-    headers.set('Content-Type', 'application/json');
+    if (options.body) {
+      headers.set('Content-Type', 'application/json');
+    }
     if (this.apiKey) {
       headers.set('Authorization', `Bearer ${this.apiKey}`);
     }

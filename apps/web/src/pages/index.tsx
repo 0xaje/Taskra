@@ -1502,7 +1502,7 @@ export default function Home() {
               <div className="space-y-xs">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Agent Name</label>
-                  <button type="button" onClick={triggerGenerateName} className="text-[10px] text-secondary dark:text-cyan-400 hover:underline">🎲 Generate Name</button>
+                  <button type="button" onClick={triggerGenerateName} className="text-[10px] text-secondary dark:text-cyan-400 hover:underline">Generate Name</button>
                 </div>
                 <input
                   required
