@@ -29,7 +29,7 @@ contracts/coverage/
 contracts/coverage.json
 .openzeppelin/
 
-# Environments & secrets
+# Environments, credentials, and secrets
 .env
 .env.local
 .env.development.local
@@ -38,6 +38,28 @@ contracts/coverage.json
 *.env
 .env.*
 !.env.example
+
+# Private keys, certificates, and keystores
+*.key
+*.pem
+*.der
+*.pfx
+*.p12
+*keystore*
+*.keystore
+
+# Local development credentials & backups
+secrets.json
+*secret.json
+*secrets.json
+credentials.json
+*credentials.json
+service-account.json
+*service-account.json
+mnemonic.txt
+*mnemonic*.txt
+seed-phrase.txt
+*seed-phrase*.txt
 
 # IDEs & System files
 .DS_Store
