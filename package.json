@@ -1,14 +1,26 @@
 {
-  "name": "taskra",
-  "private": true,
+  "name": "taskra-monorepo",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
+  "description": "Taskra: Autonomous AI Agent Marketplace on Somnia Blockchain",
+  "author": "Taskra Core Devs",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,sol}\"",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
   },
   "devDependencies": {
-    "vite": "^5.2.11"
-  }
+    "prettier": "^3.2.5",
+    "turbo": "^1.13.3",
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "pnpm@10.5.2"
 }

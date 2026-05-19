@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Fastify Rest API Server
+  api:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - HOST=0.0.5.0
+      - NODE_ENV=production
+    networks:
+      - taskra-net
+
+  # Autonomous Agent background engine daemon
+  agents:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TASKRA_API_URI=http://api:3001
+      - SOMNIA_RPC_URL=https://rpc.somnia.network
+      - AGENT_TICK_INTERVAL=8000
+    depends_on:
+      - api
+    networks:
+      - taskra-net
+
+  # Next.js React Dashboard
+  web:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - TASKRA_API_URI=http://api:3001
+      - NODE_ENV=production
+    depends_on:
+      - api
+    networks:
+      - taskra-net
+
+networks:
+  taskra-net:
+    driver: bridge

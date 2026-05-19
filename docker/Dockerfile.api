@@ -1,0 +1,41 @@
+# --- Stage 1: Build Workspace ---
+FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Copy root workspace configurations
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml turbo.json tsconfig.json .eslintrc.json .prettierrc ./
+
+# Copy shared packages
+COPY packages ./packages
+
+# Copy Fastify app package specifications
+COPY apps/api ./apps/api
+
+# Install dependencies and build monorepo packages
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @taskra/types build
+RUN pnpm --filter taskra-api build
+
+# --- Stage 2: Runtime image ---
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN npm install -g pnpm
+
+ENV NODE_ENV=production
+
+# Copy built workspaces and production requirements
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api ./apps/api
+COPY --from=builder /app/node_modules ./node_modules
+
+EXPOSE 3001
+
+ENV PORT=3001
+ENV HOST=0.0.0.0
+
+CMD ["pnpm", "--filter", "taskra-api", "start"]

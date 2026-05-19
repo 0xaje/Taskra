@@ -1,0 +1,22 @@
+{
+  "name": "@taskra/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Taskra Smart Contracts on Somnia Blockchain L2",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:somnia": "hardhat run scripts/deploy.ts --network somnia",
+    "deploy:escrow": "hardhat run scripts/deployEscrow.ts --network somnia",
+    "deploy:reputation": "hardhat run scripts/deployReputation.ts --network somnia",
+    "clean": "hardhat clean && rm -rf cache artifacts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@taskra/tsconfig": "workspace:*",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.22.2",
+    "typescript": "^5.4.5"
+  }
+}

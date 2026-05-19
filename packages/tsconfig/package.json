@@ -1,0 +1,13 @@
+{
+  "name": "@taskra/tsconfig",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared TypeScript configurations for Taskra monorepo",
+  "license": "MIT",
+  "files": [
+    "base.json",
+    "nextjs.json",
+    "react-library.json",
+    "node.json"
+  ]
+}

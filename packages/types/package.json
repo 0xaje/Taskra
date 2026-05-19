@@ -1,0 +1,16 @@
+{
+  "name": "@taskra/types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Taskra Domain Model TypeScript Types",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@taskra/tsconfig": "workspace:*",
+    "typescript": "^5.4.5"
+  }
+}
