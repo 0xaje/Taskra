@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ethers } from 'ethers';
 import Head from 'next/head';
 import { Button } from '@taskra/ui';
 import { Agent, Task, BlockchainTx, SystemStats, SystemEventLog, WalletInfo } from '@taskra/types';
@@ -862,6 +863,41 @@ export default function Home() {
       return;
     }
 
+    // Connect to Metamask provider and execute createEscrow
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      try {
+        showToast("Initiating live L2 Escrow Lock via MetaMask...", "info");
+        
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const signer = await provider.getSigner();
+        
+        // Connect to TaskraEscrow Contract
+        const escrowAddress = "0x33526D6AF4d1A7c925274dA542Eb2b06eE342b72";
+        const ESCROW_ABI = [
+          "function createEscrow(bytes32 taskId, address agent) external payable"
+        ];
+        const escrowContract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
+        
+        // Generate bytes32 taskId and random agent address
+        const taskBytes = ethers.id("task-" + selectedTaskId + "-" + Date.now());
+        const randomAgent = "0xbf6301D7bca9F23A63A2d1Ed513d5120Dbb2288E";
+        
+        // Send transaction: deposit 0.005 SOM native to lock the escrow
+        const valueWei = ethers.parseEther("0.005");
+        const tx = await escrowContract.createEscrow(taskBytes, randomAgent, { value: valueWei });
+        
+        showToast("Transaction submitted! Waiting for Somnia block confirmation...", "info");
+        addEvent(`ESCROW: Broadcasted L2 Lock transaction. Tx: ${tx.hash.slice(0, 10)}...`, 'primary');
+        
+        await tx.wait();
+        showToast("Escrow lock successfully validated on-chain!", "success");
+        addEvent(`SUCCESS: Real-time L2 Escrow locked for task ${selectedTaskId} on Somnia Testnet!`, 'secondary');
+      } catch (err: any) {
+        showToast(`Transaction failed: ${err.message}`, "error");
+        return;
+      }
+    }
+
     try {
       const res = await fetch('http://localhost:3001/bidding', {
         method: 'POST',
@@ -881,6 +917,36 @@ export default function Home() {
       }
     } catch {
       showToast("Failed to record validator allocation bid.", "error");
+    }
+  };
+
+  const connectMetaMask = async () => {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      try {
+        showToast("Requesting MetaMask connection...", "info");
+        const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts.length > 0) {
+          const balanceHex = await (window as any).ethereum.request({
+            method: 'eth_getBalance',
+            params: [accounts[0], 'latest']
+          });
+          const balanceEth = parseInt(balanceHex, 16) / 1e18;
+          
+          setWallet(w => ({
+            ...w,
+            address: accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4),
+            fullAddress: accounts[0],
+            balanceETH: balanceEth,
+          }));
+          
+          showToast(`Successfully connected MetaMask address!`, "success");
+          addEvent(`WALLET: Connected MetaMask wallet: ${accounts[0]}`, 'primary');
+        }
+      } catch (err: any) {
+        showToast(`MetaMask connection rejected: ${err.message}`, "error");
+      }
+    } else {
+      showToast("MetaMask extension not detected. Please install MetaMask in your browser.", "error");
     }
   };
 
@@ -2384,6 +2450,14 @@ export default function Home() {
                   <span className="text-[9px] font-bold text-outline dark:text-zinc-500 uppercase tracking-wider">USDC Balance</span>
                   <h4 className="font-data-mono text-lg font-bold dark:text-white mt-1">{wallet.balanceUSDC.toLocaleString()} USDC</h4>
                 </div>
+              </div>
+
+              <div className="p-md bg-primary/5 dark:bg-cyan-500/5 border border-primary/20 dark:border-cyan-500/20 rounded-lg flex items-center justify-between">
+                <div>
+                  <h5 className="text-xs font-bold text-primary dark:text-cyan-400">MetaMask Live Node</h5>
+                  <p className="text-[10px] text-on-surface-variant dark:text-zinc-400">Connect MetaMask extension for live actions.</p>
+                </div>
+                <Button onClick={connectMetaMask} variant="primary" size="sm">CONNECT METAMASK</Button>
               </div>
 
               <div className="p-md bg-secondary/5 dark:bg-cyan-500/5 border border-secondary/20 dark:border-cyan-500/20 rounded-lg flex items-center justify-between">
