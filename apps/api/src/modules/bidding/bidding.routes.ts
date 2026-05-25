@@ -3,7 +3,7 @@ import { BiddingService } from './bidding.service';
 import { BiddingController } from './bidding.controller';
 
 const biddingRoutes: FastifyPluginAsync = async (server) => {
-  const service = new BiddingService(server.io);
+  const service = new BiddingService(server.realtime);
   const controller = new BiddingController(service);
 
   server.get('/', controller.getAllBids.bind(controller));

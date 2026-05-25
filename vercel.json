@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @taskra/types build && pnpm --filter @taskra/sdk build && pnpm --filter taskra-web build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "regions": ["iad1", "sfo1"],
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}

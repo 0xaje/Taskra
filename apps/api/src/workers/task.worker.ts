@@ -2,11 +2,11 @@ import { Worker, Job } from 'bullmq';
 import { queueConnection } from '../config/bullmq';
 import { prisma } from '../config/database';
 import { BiddingService } from '../modules/bidding/bidding.service';
-import { Server as SocketIOServer } from 'socket.io';
+import { RealtimeService } from '../services/realtime';
 import { Agent } from '@prisma/client';
 
-export function startTaskWorker(io: SocketIOServer) {
-  const biddingService = new BiddingService(io);
+export function startTaskWorker(realtime: RealtimeService) {
+  const biddingService = new BiddingService(realtime);
 
   const worker = new Worker(
     'task-queue',

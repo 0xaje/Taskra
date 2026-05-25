@@ -20,5 +20,10 @@ export class TasksController {
     const task = await this.service.createTask(input);
     return reply.status(201).send(task);
   }
+
+  async getTaskLineage(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const lineage = await this.service.getTaskLineage(request.params.id);
+    return reply.status(200).send(lineage);
+  }
 }
 export default TasksController;

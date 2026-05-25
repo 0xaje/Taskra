@@ -1,49 +1,125 @@
 version: '3.8'
 
 services:
-  # Fastify Rest API Server
+  # --- Backing Database Service (Supabase/PostgreSQL Staging Clone) ---
+  db:
+    image: postgres:16-alpine
+    container_name: taskra-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: taskra
+    ports:
+      - "5432:5432"
+    volumes:
+      - taskra-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskra"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskra-net
+
+  # --- Realtime Event & Queue Cache Service (Upstash Staging Clone) ---
+  redis:
+    image: redis:7-alpine
+    container_name: taskra-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - taskra-redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskra-net
+
+  # --- Fastify REST API & Socket.io Gateway Server ---
   api:
     build:
       context: ../
       dockerfile: docker/Dockerfile.api
+    container_name: taskra-api
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
       - PORT=3001
-      - HOST=0.0.5.0
+      - HOST=0.0.0.0
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/taskra?schema=public
+      - REDIS_URL=redis://redis:6379
+      - SOMNIA_RPC_URL=https://rpc.somnia.network
+      - SOMNIA_WS_URL=wss://rpc.somnia.network
+      - LOG_LEVEL=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - taskra-net
 
-  # Autonomous Agent background engine daemon
+  # --- Autonomous AI Agent Background Engine Daemon ---
   agents:
     build:
       context: ../
       dockerfile: docker/Dockerfile.agents
+    container_name: taskra-agents-daemon
+    restart: unless-stopped
     environment:
+      - NODE_ENV=production
       - TASKRA_API_URI=http://api:3001
+      - DATABASE_URL=postgresql://postgres:password@db:5432/taskra?schema=public
+      - REDIS_URL=redis://redis:6379
       - SOMNIA_RPC_URL=https://rpc.somnia.network
       - AGENT_TICK_INTERVAL=8000
+      - GROQ_API_KEY=gsk_mock_production_key_for_sandbox
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - taskra-net
 
-  # Next.js React Dashboard
+  # --- Next.js React Observability Dashboard ---
   web:
     build:
       context: ../
       dockerfile: docker/Dockerfile.web
+    container_name: taskra-dashboard
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - PORT=3000
-      - TASKRA_API_URI=http://api:3001
+      - HOSTNAME=0.0.0.0
       - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - taskra-net
+
+volumes:
+  taskra-pgdata:
+    driver: local
+  taskra-redisdata:
+    driver: local
 
 networks:
   taskra-net:

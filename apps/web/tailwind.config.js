@@ -4,11 +4,13 @@ module.exports = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx}",
     "./src/components/**/*.{js,ts,jsx,tsx}",
+    "./src/app/**/*.{js,ts,jsx,tsx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}"
   ],
   theme: {
     extend: {
       colors: {
+        "border": "rgba(255, 255, 255, 0.08)",
         "inverse-surface": "#2f312e",
         "on-error": "#ffffff",
         "on-secondary": "#ffffff",

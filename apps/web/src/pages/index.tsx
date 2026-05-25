@@ -1,11 +1,354 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import { Button, Card } from '@taskra/ui';
-import { Agent, Task, Bid, BlockchainTx, SystemStats, SystemEventLog, WalletInfo } from '@taskra/types';
+import { Button } from '@taskra/ui';
+import { Agent, Task, BlockchainTx, SystemStats, SystemEventLog, WalletInfo } from '@taskra/types';
+
+function NetworkVisualizer({ agents, crisisState, civilizationStability }: { agents: Agent[]; crisisState: 'STABLE' | 'COLLAPSE' | 'RECOVERY'; civilizationStability: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+    let width = canvas.offsetWidth;
+    let height = canvas.offsetHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (canvas) {
+        width = canvas.offsetWidth;
+        height = canvas.offsetHeight;
+        canvas.width = width;
+        canvas.height = height;
+      }
+    });
+    resizeObserver.observe(canvas);
+
+    interface VisualNode {
+      x: number;
+      y: number;
+      radius: number;
+      name: string;
+      color: string;
+      pulse: number;
+    }
+
+    interface Packet {
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+      progress: number;
+      speed: number;
+      color: string;
+    }
+
+    const visualNodes: VisualNode[] = [];
+    const packets: Packet[] = [];
+
+    const updateNodes = () => {
+      visualNodes.length = 0;
+      if (agents.length === 0) return;
+      
+      agents.forEach((agent, index) => {
+        const angle = (index / agents.length) * Math.PI * 2;
+        const radius = Math.min(width, height) * 0.28;
+        
+        let nodeColor = '#22d3ee';
+        if (crisisState === 'COLLAPSE') {
+          nodeColor = '#ef4444';
+        } else if (crisisState === 'RECOVERY') {
+          nodeColor = '#fbbf24';
+        } else if (agent.status === 'OFFLINE') {
+          nodeColor = '#ef4444';
+        } else if (agent.status === 'IDLE_SCANNING') {
+          nodeColor = '#71717a';
+        }
+
+        visualNodes.push({
+          x: width / 2 + Math.cos(angle) * radius,
+          y: height / 2 + Math.sin(angle) * radius,
+          radius: agent.tier === 'Elite' ? 10 : agent.tier === 'Advanced' ? 8 : 6,
+          name: agent.name,
+          color: nodeColor,
+          pulse: 0
+        });
+      });
+    };
+
+    updateNodes();
+
+    let spawnTimer = 0;
+    let shockwaveRadius = 0;
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Draw red stress fractures if in COLLAPSE state
+      if (crisisState === 'COLLAPSE') {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.12)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, height * 0.3);
+        ctx.lineTo(width * 0.4, height * 0.45);
+        ctx.lineTo(width * 0.6, height * 0.25);
+        ctx.lineTo(width, height * 0.4);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(width * 0.2, height);
+        ctx.lineTo(width * 0.35, height * 0.6);
+        ctx.lineTo(width * 0.7, height * 0.75);
+        ctx.lineTo(width * 0.85, 0);
+        ctx.stroke();
+      }
+
+      // 2. Draw background network connections
+      if (crisisState === 'COLLAPSE') {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.18)';
+        ctx.setLineDash([2, 6]);
+      } else if (crisisState === 'RECOVERY') {
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
+        ctx.setLineDash([4, 4]);
+      } else {
+        ctx.strokeStyle = 'rgba(113, 113, 122, 0.08)';
+        ctx.setLineDash([]);
+      }
+      
+      ctx.lineWidth = 1;
+      for (let i = 0; i < visualNodes.length; i++) {
+        for (let j = i + 1; j < visualNodes.length; j++) {
+          if (crisisState === 'COLLAPSE' && (i + j) % 3 === 0) continue;
+          
+          ctx.beginPath();
+          ctx.moveTo(visualNodes[i].x, visualNodes[i].y);
+          ctx.lineTo(visualNodes[j].x, visualNodes[j].y);
+          ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]);
+
+      // 3. Draw shockwave rings in COLLAPSE
+      if (crisisState === 'COLLAPSE') {
+        shockwaveRadius += 3;
+        if (shockwaveRadius > Math.max(width, height)) {
+          shockwaveRadius = 0;
+        }
+        ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 1 - shockwaveRadius / Math.max(width, height)) * 0.25})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(width / 2, height / 2, shockwaveRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 4. Update & Draw Packets
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        p.progress += p.speed;
+        if (p.progress >= 1) {
+          packets.splice(i, 1);
+          continue;
+        }
+
+        const currentX = p.startX + (p.endX - p.startX) * p.progress;
+        const currentY = p.startY + (p.endY - p.startY) * p.progress;
+
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = p.color;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(currentX, currentY, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // 5. Update & Draw Nodes
+      visualNodes.forEach((node) => {
+        let jitterX = 0;
+        let jitterY = 0;
+        if (crisisState === 'COLLAPSE') {
+          jitterX = (Math.random() - 0.5) * 5;
+          jitterY = (Math.random() - 0.5) * 5;
+          node.pulse += 0.18;
+        } else {
+          node.pulse += 0.05;
+        }
+
+        const nodeX = node.x + jitterX;
+        const nodeY = node.y + jitterY;
+        
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, node.radius + Math.sin(node.pulse) * (crisisState === 'COLLAPSE' ? 5 : 3) + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, node.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = crisisState === 'COLLAPSE' ? '#f87171' : crisisState === 'RECOVERY' ? '#fcd34d' : '#a1a1aa';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(node.name, nodeX, nodeY - node.radius - 4);
+      });
+
+      spawnTimer++;
+      if (spawnTimer > (crisisState === 'COLLAPSE' ? 12 : 35) && visualNodes.length > 1) {
+        spawnTimer = 0;
+        const startIndex = Math.floor(Math.random() * visualNodes.length);
+        let endIndex = Math.floor(Math.random() * visualNodes.length);
+        while (endIndex === startIndex) {
+          endIndex = Math.floor(Math.random() * visualNodes.length);
+        }
+
+        const start = visualNodes[startIndex];
+        const end = visualNodes[endIndex];
+
+        let pColor = '#22d3ee';
+        if (crisisState === 'COLLAPSE') pColor = '#ef4444';
+        else if (crisisState === 'RECOVERY') pColor = '#fbbf24';
+
+        packets.push({
+          startX: start.x,
+          startY: start.y,
+          endX: end.x,
+          endY: end.y,
+          progress: 0,
+          speed: (crisisState === 'COLLAPSE' ? 0.024 : 0.012) + Math.random() * 0.018,
+          color: pColor
+        });
+      }
+
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      resizeObserver.disconnect();
+    };
+  }, [agents, crisisState]);
+
+  return (
+    <div className="w-full h-full relative">
+      <canvas ref={canvasRef} className="w-full h-full block" />
+    </div>
+  );
+}
 
 export default function Home() {
+  // --- Synth Audio Engine ---
+  const playSynthSound = (type: 'collapse' | 'recovery' | 'click' | 'success') => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      if (type === 'collapse') {
+        // Deep Ominous Analog Bass Sweep
+        const osc = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc2.type = 'triangle';
+        
+        osc.frequency.setValueAtTime(120, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 2.5);
+        
+        osc2.frequency.setValueAtTime(60, ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(15, ctx.currentTime + 2.5);
+        
+        gainNode.gain.setValueAtTime(0.35, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 2.5);
+        
+        osc.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start();
+        osc2.start();
+        osc.stop(ctx.currentTime + 2.5);
+        osc2.stop(ctx.currentTime + 2.5);
+      } 
+      else if (type === 'recovery') {
+        // Sparkling high-frequency major-chord arpeggio
+        const playTone = (freq: number, start: number, duration: number) => {
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+          gainNode.gain.setValueAtTime(0, ctx.currentTime + start);
+          gainNode.gain.linearRampToValueAtTime(0.18, ctx.currentTime + start + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          osc.start(ctx.currentTime + start);
+          osc.stop(ctx.currentTime + start + duration);
+        };
+        
+        playTone(523.25, 0.0, 1.2); // C5
+        playTone(659.25, 0.15, 1.2); // E5
+        playTone(783.99, 0.3, 1.2); // G5
+        playTone(1046.50, 0.45, 1.5); // C6
+      }
+      else if (type === 'success') {
+        // Crisp digital glass chime resolved
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.08);
+        
+        gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.8);
+      }
+      else if (type === 'click') {
+        // Subtle, short high-frequency tick for user action
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+      }
+    } catch (e) {
+      // Audio fallback safe
+    }
+  };
+
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>([]);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
   // --- Core State ---
-  const [currentView, setView] = useState<'dashboard' | 'market' | 'agents' | 'onchain'>('dashboard');
+  const [currentView, setView] = useState<'civilization' | 'market' | 'agents' | 'governance' | 'crisis'>('civilization');
+  const changeView = (view: 'civilization' | 'market' | 'agents' | 'governance' | 'crisis') => {
+    playSynthSound('click');
+    setView(view);
+  };
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [simulationActive, setSimulationActive] = useState<boolean>(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -32,121 +375,207 @@ export default function Home() {
     ]
   });
 
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 'TK-992-BX',
-      title: 'Cross-chain Liquidity Audit',
-      category: 'Security',
-      tags: ['Security', 'DeFi'],
-      reward: 0.42,
-      rewardType: 'ETH',
-      bids: 12,
-      status: 'OPEN',
-      desc: 'Conduct a comprehensive smart contract audit for a cross-chain liquidity bridge. Focus on locking mechanisms, gas optimization, and reentrancy vectors across EVM chains.',
-      specs: 'Target Contracts: BridgeRouter.sol, VaultManager.sol\nAudit Depth: Line-by-line manual audit + Mythril scan\nExecution Deadline: 48 Hours\nMin Reputation Limit: 90 REP'
-    },
-    {
-      id: 'TK-104-QL',
-      title: 'Sentiment Synthesis: BTC/USD',
-      category: 'Data Mining',
-      tags: ['Data Mining', 'AI Training'],
-      reward: 1240,
-      rewardType: 'USDC',
-      bids: 4,
-      status: 'OPEN',
-      desc: 'Synthesize social sentiment metrics and on-chain metrics for the BTC/USD pair. Clean data and generate structured training inputs for temporal prediction models.',
-      specs: 'Data Sources: X API, Reddit API, Glassnode API\nFormat: Parquet files, daily aggregates\nRequirement: Noise reduction filter applied\nProcessing Node Requirement: Tier-2 or above'
-    },
-    {
-      id: 'TK-887-AM',
-      title: 'MEV Arb Route Optimization',
-      category: 'Strategy',
-      tags: ['Strategy', 'Flashbots'],
-      reward: 0.85,
-      rewardType: 'ETH',
-      bids: 31,
-      status: 'OPEN',
-      desc: 'Optimize transaction routes across multiple decentralized exchanges to capture multi-hop arbitrage opportunities. Implement backrunning searcher algorithm.',
-      specs: 'Target DEXs: Uniswap v3, Balancer, Curve\nLatency Requirement: < 50ms execution overhead\nInclusion: Flashbots builder gas bidding logic'
-    },
-    {
-      id: 'TK-221-ZY',
-      title: 'Node Latency Benchmark',
-      category: 'Infrastructure',
-      tags: ['Infrastructure'],
-      reward: 150,
-      rewardType: 'USDC',
-      bids: 0,
-      status: 'NEW',
-      desc: 'Run full network latency benchmarks across 45 active validator nodes. Capture ping, block propagation time, and gossip protocol throughput.',
-      specs: 'Nodes: Global distributed validator set\nDuration: 24-hour continuous tracking\nDeliverable: Raw JSON dump + analysis report'
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [events, setEvents] = useState<SystemEventLog[]>([]);
+  
+  // --- Commit-Reveal Bidding Swarm State ---
+  const [biddingPhase, setBiddingPhase] = useState<'COMMIT' | 'REVEAL' | 'RESOLVED'>('RESOLVED');
+  const [biddingCountdown, setBiddingCountdown] = useState<number>(0);
+  const [auctionBids, setAuctionBids] = useState<Array<{
+    agentName: string;
+    hash: string;
+    revealedValue: string;
+    status: 'Committed' | 'Revealing' | 'Revealed';
+  }>>([]);
+
+  const handleStartAuction = () => {
+    playSynthSound('click');
+    setBiddingPhase('COMMIT');
+    setBiddingCountdown(8);
+    setAuctionBids([
+      { agentName: 'Nexus security.eth', hash: '0x8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a', revealedValue: 'Pending...', status: 'Committed' },
+      { agentName: 'DeFi swarmer.eth', hash: '0x3c4b9a1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c', revealedValue: 'Pending...', status: 'Committed' },
+      { agentName: 'Data miner.eth', hash: '0x9d4c1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c4b', revealedValue: 'Pending...', status: 'Committed' }
+    ]);
+    showToast("Cryptographic Commit Phase Started!", "info");
+    addEvent("AUCTION: Commit phase active. Swarm agents broadcasting cryptographic hashes.", "primary");
+  };
+
+  useEffect(() => {
+    if (biddingCountdown <= 0) {
+      if (biddingPhase === 'COMMIT') {
+        playSynthSound('click');
+        setBiddingPhase('REVEAL');
+        setBiddingCountdown(8);
+        showToast("Reveal Phase Started! Decrypting bids...", "success");
+        addEvent("AUCTION: Reveal phase active. Decrypting cryptographic values.", "primary");
+        setAuctionBids(prev => prev.map(b => ({ ...b, status: 'Revealing' })));
+      } else if (biddingPhase === 'REVEAL') {
+        playSynthSound('success');
+        setBiddingPhase('RESOLVED');
+        setAuctionBids([
+          { agentName: 'Nexus security.eth', hash: '0x8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a', revealedValue: '0.14 ETH', status: 'Revealed' },
+          { agentName: 'DeFi swarmer.eth', hash: '0x3c4b9a1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c', revealedValue: '0.19 ETH', status: 'Revealed' },
+          { agentName: 'Data miner.eth', hash: '0x9d4c1e8f7a2d9c4b1e8f7a2d9c4b1e8f7a2d9c4b', revealedValue: '0.22 ETH', status: 'Revealed' }
+        ]);
+        showToast("Auction resolved! Nexus security.eth wins with 0.14 ETH.", "success");
+        addEvent("AUCTION: Lowest valid bid of 0.14 ETH confirmed by Nexus security.eth.", "secondary");
+      }
+      return;
     }
-  ]);
 
-  const [agents, setAgents] = useState<Agent[]>([
-    {
-      id: 'AG-001',
-      name: 'Agent_Xero',
-      specialty: 'Security Auditor',
-      tier: 'Elite',
-      rep: 99.2,
-      winRate: 94,
-      status: 'ACTIVE_BIDDING',
-      strategy: 'Balanced',
-      jobsCompleted: 42,
-      earningsETH: 3.84,
-      earningsUSDC: 1250,
-      avatar: 'smart_toy',
-      description: 'Specialized in cryptographic checks, smart contract scanning, and automated formal verification.'
-    },
-    {
-      id: 'AG-002',
-      name: 'Synth_Minder',
-      specialty: 'Data Analyst',
-      tier: 'Advanced',
-      rep: 87.5,
-      winRate: 82,
-      status: 'IDLE_SCANNING',
-      strategy: 'Conservative',
-      jobsCompleted: 19,
-      earningsETH: 0.95,
-      earningsUSDC: 2840,
-      avatar: 'neurology',
-      description: 'Focuses on high-speed data stream parsing, sentiment extraction, and AI pre-processing.'
-    },
-    {
-      id: 'AG-003',
-      name: 'MEV_Destroyer',
-      specialty: 'Arb Specialist',
-      tier: 'Elite',
-      rep: 94.1,
-      winRate: 91,
-      status: 'OFFLINE',
-      strategy: 'Aggressive',
-      jobsCompleted: 77,
-      earningsETH: 8.42,
-      earningsUSDC: 5120,
-      avatar: 'memory',
-      description: 'Optimized for fast path-finding algorithms and low-latency transaction bundlers.'
+    const intervalId = setInterval(() => {
+      setBiddingCountdown(c => c - 1);
+      if (biddingPhase === 'REVEAL') {
+        setAuctionBids(prev => {
+          const indexToReveal = prev.findIndex(b => b.status === 'Revealing');
+          if (indexToReveal !== -1) {
+            const next = [...prev];
+            const values = ['0.14 ETH', '0.19 ETH', '0.22 ETH'];
+            next[indexToReveal] = {
+              ...next[indexToReveal],
+              status: 'Revealed',
+              revealedValue: values[indexToReveal]
+            };
+            return next;
+          }
+          return prev;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [biddingCountdown, biddingPhase]);
+  
+  // --- Autonomous Economic Crisis & Self-Recovery Engine State ---
+  const [crisisState, setCrisisState] = useState<'STABLE' | 'COLLAPSE' | 'RECOVERY'>('STABLE');
+  const [civilizationStability, setCivilizationStability] = useState<number>(100);
+  const [stressMetrics, setStressMetrics] = useState({
+    marketInstability: 5,
+    validatorHostility: 8,
+    congestionPressure: 12,
+    coalitionTrust: 95,
+    slashingFear: 4,
+    executionFailureRate: 2,
+    liquidityScarcity: 6
+  });
+
+  const handleInitiateCrisis = () => {
+    playSynthSound('collapse');
+    setCrisisState('COLLAPSE');
+    showToast("Catastrophic Economic Collapse Initiated!", "error");
+    addEvent("SYSTEM CRITICAL: Global market instability and validator trust collapse triggered.", "error");
+  };
+
+  useEffect(() => {
+    if (crisisState === 'STABLE') return;
+
+    let intervalId: any;
+    let timer = 0;
+
+    if (crisisState === 'COLLAPSE') {
+      intervalId = setInterval(() => {
+        timer += 1;
+        
+        // Decay stability
+        setCivilizationStability(prev => {
+          const next = prev - (prev > 15 ? 12 : 1);
+          return Math.max(next, 12);
+        });
+
+        // Increase stress metrics
+        setStressMetrics(prev => ({
+          marketInstability: Math.min(prev.marketInstability + 15, 96),
+          validatorHostility: Math.min(prev.validatorHostility + 12, 88),
+          congestionPressure: Math.min(prev.congestionPressure + 14, 94),
+          coalitionTrust: Math.max(prev.coalitionTrust - 15, 14),
+          slashingFear: Math.min(prev.slashingFear + 16, 98),
+          executionFailureRate: Math.min(prev.executionFailureRate + 12, 74),
+          liquidityScarcity: Math.min(prev.liquidityScarcity + 13, 90)
+        }));
+
+        // Dynamically shift agent strategy statuses to survival mode
+        setAgents(prevAgents => prevAgents.map((a, index) => ({
+          ...a,
+          strategy: index % 2 === 0 ? 'Conservative' : 'Balanced',
+          status: 'OFFLINE', // visually represents node failure / defensive scanner mode
+          description: `Defensive node configuration triggered. Executing validator trust negotiations.`
+        })));
+
+        // Inject emotional thoughts & events
+        if (timer === 2) {
+          addEvent("DANGER: Swarm validator coalition trust drops below 20%.", "error");
+          showToast("Swarm coalitions fracturing!", "error");
+        } else if (timer === 4) {
+          addEvent("CRITICAL: High congestion detected. Slashes spike by +450%.", "error");
+          showToast("High L2 gas and slashing detected!", "error");
+        } else if (timer === 6) {
+          addEvent("AGENTS: Deployed nodes prioritizing risk avoidance over profit margins.", "reasoning");
+        } else if (timer === 8) {
+          addEvent("CRITICAL: Rogue node validation detected on L2 ledger registry.", "error");
+        } else if (timer === 10) {
+          addEvent("SYSTEM: Self-governing agents initiating adaptive negotiation protocols.", "primary");
+          showToast("Autonomous adaptation started!", "info");
+        }
+
+        // Transition to recovery
+        if (timer >= 12) {
+          playSynthSound('recovery');
+          setCrisisState('RECOVERY');
+          addEvent("HEALING: Swarm coalition trust stabilizing. Rebuilding validator trust framework.", "reasoning");
+          showToast("Rebuilding validator trust framework...", "info");
+        }
+      }, 1000);
+    } else if (crisisState === 'RECOVERY') {
+      intervalId = setInterval(() => {
+        timer += 1;
+
+        // Restore stability
+        setCivilizationStability(prev => {
+          const next = prev + 8;
+          return Math.min(next, 98);
+        });
+
+        // Decline stress metrics back to normal
+        setStressMetrics(prev => ({
+          marketInstability: Math.max(prev.marketInstability - 6, 8),
+          validatorHostility: Math.max(prev.validatorHostility - 7, 10),
+          congestionPressure: Math.max(prev.congestionPressure - 8, 12),
+          coalitionTrust: Math.min(prev.coalitionTrust + 6, 94),
+          slashingFear: Math.max(prev.slashingFear - 7, 5),
+          executionFailureRate: Math.max(prev.executionFailureRate - 5, 2),
+          liquidityScarcity: Math.max(prev.liquidityScarcity - 6, 8)
+        }));
+
+        // Restore agents
+        setAgents(prevAgents => prevAgents.map((a) => ({
+          ...a,
+          strategy: 'Balanced',
+          status: 'IDLE_SCANNING',
+          description: `Self-learning autonomous node focusing on DeFi and Security workloads.`
+        })));
+
+        if (timer === 3) {
+          addEvent("HEALING: Redistributing validator stake to peak reputation nodes.", "primary");
+        } else if (timer === 6) {
+          addEvent("HEALING: Resolving backlogged task queues under adaptive guidelines.", "reasoning");
+        } else if (timer === 9) {
+          addEvent("AGENTS: Normalizing strategy constraints. Returning to profit models.", "primary");
+          showToast("Swarm stability restored successfully!", "success");
+        }
+
+        if (timer >= 12) {
+          setCrisisState('STABLE');
+          setCivilizationStability(100);
+          addEvent("EQUILIBRIUM: L2 mesh network successfully healed itself autonomously.", "secondary");
+        }
+      }, 1000);
     }
-  ]);
 
-  const [events, setEvents] = useState<SystemEventLog[]>([
-    { time: '22:49:01', text: 'BID_PLACED: Agent_Xero -> TK-992-BX (0.38 ETH)', type: 'secondary' },
-    { time: '22:48:15', text: 'ASSIGNMENT: Synth_Minder <- TK-104-QL (COMPLETED)', type: 'white' },
-    { time: '22:47:40', text: 'LOG: Network expansion protocol initiated v2.4', type: 'primary' },
-    { time: '22:46:12', text: 'BID_REJECTED: Bot_404 -> TK-992-BX (Insuff. Rep)', type: 'error' },
-    { time: '22:45:00', text: 'SYNC: Block 18,922,044 broadcasted', type: 'secondary' },
-    { time: '22:43:55', text: 'TASK_POSTED: New node latency test (150 USDC)', type: 'white' }
-  ]);
-
-  const [onchainLogs, setOnchainLogs] = useState<BlockchainTx[]>([
-    { block: 18922044, method: 'SubmitBid', target: 'TK-992-BX', gas: '84,242', status: 'SUCCESS', hash: '0x8f2d5e...143a' },
-    { block: 18922043, method: 'SettleReward', target: 'Synth_Minder', gas: '142,880', status: 'SUCCESS', hash: '0x2e8f1b...ff9d' },
-    { block: 18922041, method: 'DeployAgent', target: 'Agent_Xero', gas: '1,245,190', status: 'SUCCESS', hash: '0xc8da92...51ba' },
-    { block: 18922040, method: 'CreateTask', target: 'TK-221-ZY', gas: '380,450', status: 'SUCCESS', hash: '0x7e8412...ee8a' },
-    { block: 18922038, method: 'UpdateStrategy', target: 'MEV_Destroyer', gas: '45,210', status: 'SUCCESS', hash: '0x991f8a...cd32' }
-  ]);
+    return () => clearInterval(intervalId);
+  }, [crisisState]);
+  const [onchainLogs, setOnchainLogs] = useState<BlockchainTx[]>([]);
 
   // --- Filtering & Sorting State ---
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -209,7 +638,7 @@ export default function Home() {
   // --- Add Event Log Helper ---
   const addEvent = (text: string, type: SystemEventLog['type'] = 'white') => {
     const time = new Date().toLocaleTimeString();
-    setEvents(prev => [...prev, { time, text, type }]);
+    setEvents(prev => [...prev, { time, text, type }].slice(0, 100));
   };
 
   // --- Auto-scroll Terminal ---
@@ -219,443 +648,362 @@ export default function Home() {
     }
   }, [events]);
 
-  // --- Background Live Simulation Loop ---
+  // --- Dynamic Live API state Sync loop ---
   useEffect(() => {
-    if (!simulationActive) return;
-
-    const interval = setInterval(() => {
-      // 1. Slightly oscillate TPS throughput
-      const tpsFluctuation = (Math.random() - 0.5) * 1.8;
-      setStats(prev => {
-        const nextTps = Math.max(8.0, Math.min(30.0, prev.tps + tpsFluctuation));
-        setCharts(c => ({
-          ...c,
-          tps: [...c.tps.slice(1), nextTps]
-        }));
-        return { ...prev, tps: nextTps };
-      });
-
-      // 2. Chance of an external computational task posted
-      if (Math.random() < 0.18) {
-        const titles = [
-          'AMM Swap Path Optimizer',
-          'Zero-Knowledge Proof Verifier',
-          'Chainlink Feed Latency Checker',
-          'ERC-20 Vulnerability Fuzzer',
-          'Epoch Block Propagation Audit'
-        ];
-        const categories = ['Strategy', 'Security', 'Infrastructure', 'Security', 'Infrastructure'];
-        const index = Math.floor(Math.random() * titles.length);
-        const rewardType = Math.random() > 0.5 ? 'ETH' : 'USDC';
-        const reward = rewardType === 'ETH' ? parseFloat((0.1 + Math.random() * 0.8).toFixed(2)) : Math.floor(200 + Math.random() * 1500);
-
-        const taskId = `TK-${Math.floor(100 + Math.random() * 899)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
-        
-        const newTask: Task = {
-          id: taskId,
-          title: titles[index],
-          category: categories[index] as Task['category'],
-          tags: [categories[index], rewardType],
-          reward,
-          rewardType: rewardType as Task['rewardType'],
-          bids: Math.floor(Math.random() * 6),
-          status: 'NEW',
-          desc: `Automatically dispatched target contract computing specification. Run sanity verification constraints and assert execution validity.`,
-          specs: `Gas escrows: LOCKED\nMin Reputation: 80 REP\nTimeout: 12,000 blocks`
-        };
-
-        setTasks(prev => [...prev, newTask]);
-        addEvent(`TASK_POSTED: External builder broadcasted "${titles[index]}" reward: ${reward} ${rewardType}`, 'white');
-      }
-
-      // 3. Simulated bid placement on existing tasks
-      if (Math.random() < 0.25 && tasks.length > 0) {
-        setTasks(prev => {
-          if (prev.length === 0) return prev;
-          const randomIndex = Math.floor(Math.random() * prev.length);
-          const copy = [...prev];
-          const task = copy[randomIndex];
-          if (task) {
-            task.bids += 1;
-            const externalAgents = ['Neura_Link', 'Cyber_Shield', 'Hash_Lock', 'Byte_Vanguard', 'Sol_Pulse'];
-            const randomBot = externalAgents[Math.floor(Math.random() * externalAgents.length)];
-            addEvent(`BID_PLACED: ${randomBot} submitted contract bid on ${task.id} (${(task.reward * 0.92).toFixed(2)} ${task.rewardType})`, 'secondary');
-          }
-          return copy;
-        });
-      }
-
-      // 4. Block mined tick
-      if (Math.random() < 0.1) {
-        setBlockHeight(b => {
-          const nextBlock = b + 1;
-          addEvent(`SYNC: Block #${nextBlock.toLocaleString()} successfully minted on L2 consensus`, 'primary');
-          
-          // Add to onchain logs
-          const methods = ['SubmitBid', 'CreateTask', 'SettleReward', 'DeployAgent'];
-          const randomMethod = methods[Math.floor(Math.random() * methods.length)];
-          const newTx: BlockchainTx = {
-            block: nextBlock,
-            method: randomMethod,
-            target: '0x' + Math.random().toString(16).slice(2, 6) + '...',
-            gas: Math.floor(40000 + Math.random() * 800000).toLocaleString(),
-            status: 'SUCCESS',
-            hash: '0x' + Math.random().toString(16).slice(2, 8)
-          };
-          setOnchainLogs(logs => [newTx, ...logs.slice(0, 29)]);
-          return nextBlock;
-        });
-      }
-
-      // 5. Chance of user bidding agent completing active jobs autonomously
-      if (Math.random() < 0.15) {
-        const biddingAgents = agents.filter(a => a.status === 'ACTIVE_BIDDING');
-        if (biddingAgents.length > 0 && tasks.length > 0) {
-          const agent = biddingAgents[Math.floor(Math.random() * biddingAgents.length)];
-          const openTaskIndex = tasks.findIndex(t => t.status === 'OPEN' || t.status === 'NEW');
-          if (openTaskIndex !== -1) {
-            const task = tasks[openTaskIndex];
-            if (task) completeTask(task, agent);
-          }
+    const fetchLiveData = async () => {
+      try {
+        // 1. Fetch Global Stats
+        const statsRes = await fetch('http://localhost:3001/system/stats');
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(statsData);
+          setCharts(c => ({
+            ...c,
+            tps: [...c.tps.slice(1), statsData.tps]
+          }));
         }
-      }
-    }, 3500);
 
+        // 2. Fetch Tasks list
+        const tasksRes = await fetch('http://localhost:3001/tasks');
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setTasks(tasksData.map((t: any) => ({
+            ...t,
+            reward: Number(t.reward || 0)
+          })));
+        }
+
+        // 3. Fetch Deployed Agents
+        const agentsRes = await fetch('http://localhost:3001/agents');
+        if (agentsRes.ok) {
+          const agentsData = await agentsRes.json();
+          setAgents(agentsData.map((a: any) => ({
+            ...a,
+            earningsETH: Number(a.earningsETH || 0),
+            earningsUSDC: Number(a.earningsUSDC || 0),
+            stakeLocked: Number(a.stakeLocked || 0),
+            collateralSlashHistory: Number(a.collateralSlashHistory || 0)
+          })));
+        }
+
+        // 4. Fetch Blockchain Tx Logs
+        const logsRes = await fetch('http://localhost:3001/system/blockchain-logs');
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setOnchainLogs(logsData.map((log: any) => ({
+            block: log.block || log.blockNumber || 18922044,
+            method: log.method || 'SubmitBid',
+            target: log.target || 'TK-992',
+            gas: log.gasUsed || log.gas || '84,242',
+            status: log.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED',
+            hash: log.hash || log.transactionHash || '0x' + Math.random().toString(16).slice(2, 8)
+          })));
+        }
+
+        // 5. Fetch Cognitive Event Logs
+        const reasoningRes = await fetch('http://localhost:3001/system/reasoning');
+        if (reasoningRes.ok) {
+          const reasoningData = await reasoningRes.json();
+          setEvents(reasoningData.map((r: any) => ({
+            time: new Date(r.timestamp || Date.now()).toLocaleTimeString(),
+            text: `[${r.action}] ${r.agentName || 'Agent'}: ${r.explanation}`,
+            type: r.action === 'BIDDING' ? 'secondary' : r.action === 'EVOLUTION' ? 'primary' : r.action === 'REJECTING' ? 'error' : 'white'
+          })));
+        }
+
+        // Get Simulation Status
+        const simRes = await fetch('http://localhost:3001/system/simulation/status');
+        if (simRes.ok) {
+          const simData = await simRes.json();
+          setSimulationActive(simData.active);
+        }
+      } catch (err) {
+        console.error("API sync failure, falling back to mock indicators", err);
+      }
+    };
+
+    fetchLiveData();
+    const interval = setInterval(fetchLiveData, 3500);
     return () => clearInterval(interval);
-  }, [simulationActive, tasks, agents]);
+  }, []);
 
-  // --- Complete task logic ---
-  const completeTask = (task: Task, agent: Agent) => {
-    // Reward agent & user
-    setAgents(prev => prev.map(a => {
-      if (a.id === agent.id) {
-        return {
-          ...a,
-          earningsETH: task.rewardType === 'ETH' ? a.earningsETH + task.reward : a.earningsETH,
-          earningsUSDC: task.rewardType === 'USDC' ? a.earningsUSDC + task.reward : a.earningsUSDC,
-          jobsCompleted: a.jobsCompleted + 1,
-          rep: Math.min(100.0, a.rep + 0.5)
-        };
+  // --- Handlers linking directly to ports ---
+  const handleToggleSimulation = async () => {
+    try {
+      const nextActive = !simulationActive;
+      const res = await fetch('http://localhost:3001/system/simulation/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: nextActive })
+      });
+      if (res.ok) {
+        setSimulationActive(nextActive);
       }
-      return a;
-    }));
-
-    setWallet(prev => ({
-      ...prev,
-      balanceETH: task.rewardType === 'ETH' ? prev.balanceETH + task.reward : prev.balanceETH,
-      balanceUSDC: task.rewardType === 'USDC' ? prev.balanceUSDC + task.reward : prev.balanceUSDC,
-      transactions: [{
-        type: `Reward: ${task.title}`,
-        asset: task.rewardType,
-        amount: task.reward,
-        time: new Date().toLocaleTimeString(),
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...prev.transactions]
-    }));
-
-    setStats(prev => {
-      const nextETH = task.rewardType === 'ETH' ? prev.totalRewardsETH + task.reward : prev.totalRewardsETH;
-      setCharts(c => ({
-        ...c,
-        rewards: [...c.rewards.slice(1), nextETH]
-      }));
-      return {
-        ...prev,
-        totalRewardsETH: nextETH,
-        totalRewardsUSDC: task.rewardType === 'USDC' ? prev.totalRewardsUSDC + task.reward : prev.totalRewardsUSDC
-      };
-    });
-
-    // Remove task from list
-    setTasks(prev => prev.filter(t => t.id !== task.id));
-    addEvent(`JOB_SUCCESS: Agent ${agent.name} solved job "${task.title}" (+${task.reward} ${task.rewardType})`, 'secondary');
-
-    // Add block explorer log
-    setBlockHeight(b => {
-      const nextBlock = b + 1;
-      setOnchainLogs(logs => [{
-        block: nextBlock,
-        method: 'SettleReward',
-        target: agent.name,
-        gas: '220,105',
-        status: 'SUCCESS',
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...logs]);
-      return nextBlock;
-    });
+    } catch {
+      setSimulationActive(!simulationActive);
+    }
   };
 
-  // --- Handlers ---
-  const handlePostTask = (e: React.FormEvent) => {
+  const handlePostTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postTitle || !postDesc) return;
 
     if (postAsset === 'ETH') {
       if (wallet.balanceETH < postReward) {
-        alert("Insufficient ETH balance to lock into Escrow!");
+        showToast("Insufficient ETH balance to lock into Escrow!", "error");
         return;
       }
-      setWallet(w => ({ ...w, balanceETH: w.balanceETH - postReward }));
     } else {
       if (wallet.balanceUSDC < postReward) {
-        alert("Insufficient USDC balance to lock into Escrow!");
+        showToast("Insufficient USDC balance to lock into Escrow!", "error");
         return;
       }
-      setWallet(w => ({ ...w, balanceUSDC: w.balanceUSDC - postReward }));
     }
 
-    const taskId = `TK-${Math.floor(100 + Math.random() * 899)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
-    
-    const newTask: Task = {
-      id: taskId,
-      title: postTitle,
-      category: postCategory as Task['category'],
-      tags: [postCategory, postAsset],
-      reward: postReward,
-      rewardType: postAsset,
-      bids: 0,
-      status: 'NEW',
-      desc: postDesc,
-      specs: `Instruction hash: md5-${Math.random().toString(16).slice(2, 10)}\nGas Escrow Vault: LOCKED\nNetwork Compatibility: Global Distributed`
-    };
+    try {
+      const res = await fetch('http://localhost:3001/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: postTitle,
+          category: postCategory,
+          tags: [postCategory, postAsset],
+          reward: Number(postReward),
+          rewardType: postAsset,
+          desc: postDesc,
+          specs: `Target Contracts: ${postTitle.replace(/\s+/g, '')}.sol\nGas Escrow Vault: LOCKED\nTimeout: 12,000 blocks`,
+          creator: '0x71C24151a6E39b1B33e7dAdF4E18dF8E1Cb3e44b'
+        })
+      });
 
-    setTasks(prev => [...prev, newTask]);
-    addEvent(`TASK_POSTED: Locked ${postReward} ${postAsset} escrow. Posted "${postTitle}" (${taskId})`, 'white');
+      if (res.ok) {
+        const data = await res.json();
+        addEvent(`TASK_POSTED: Locked ${postReward} ${postAsset} escrow. Posted "${postTitle}"`, 'white');
+        
+        // Deduct balance locally
+        setWallet(w => ({
+          ...w,
+          balanceETH: postAsset === 'ETH' ? w.balanceETH - postReward : w.balanceETH,
+          balanceUSDC: postAsset === 'USDC' ? w.balanceUSDC - postReward : w.balanceUSDC,
+          transactions: [{
+            type: `Escrow Lock: ${postTitle}`,
+            asset: postAsset,
+            amount: postReward,
+            time: new Date().toLocaleTimeString(),
+            hash: data.hash || '0x' + Math.random().toString(16).slice(2, 8)
+          }, ...w.transactions]
+        }));
 
-    setWallet(w => ({
-      ...w,
-      transactions: [{
-        type: `Escrow Lock: ${postTitle}`,
-        asset: postAsset,
-        amount: postReward,
-        time: new Date().toLocaleTimeString(),
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...w.transactions]
-    }));
-
-    setBlockHeight(b => {
-      const nextBlock = b + 1;
-      setOnchainLogs(logs => [{
-        block: nextBlock,
-        method: 'CreateTask',
-        target: taskId,
-        gas: '342,000',
-        status: 'SUCCESS',
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...logs]);
-      return nextBlock;
-    });
-
-    // Reset Fields
-    setPostTitle('');
-    setPostDesc('');
-    setPostReward(0.5);
+        // Reset Fields
+        setPostTitle('');
+        setPostDesc('');
+        setPostReward(0.5);
+        showToast("Escrow task created successfully!", "success");
+      }
+    } catch {
+      showToast("Failed to connect to blockchain workspace server.", "error");
+    }
   };
 
-  const handleDeployAgent = (e: React.FormEvent) => {
+  const handleDeployAgent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deployName) return;
 
     let cost = 0.05;
-    let rep = 75.0;
-    let winRate = 78;
-    let avatar = 'smart_toy';
-
-    if (deployTier === 'Advanced') {
-      cost = 0.15;
-      rep = 88.0;
-      winRate = 86;
-      avatar = 'neurology';
-    } else if (deployTier === 'Elite') {
-      cost = 0.50;
-      rep = 96.0;
-      winRate = 95;
-      avatar = 'memory';
-    }
+    if (deployTier === 'Advanced') cost = 0.15;
+    else if (deployTier === 'Elite') cost = 0.50;
 
     if (wallet.balanceETH < cost) {
-      alert("Insufficient ETH balance in connected wallet!");
+      showToast("Insufficient ETH balance in connected wallet!", "error");
       return;
     }
 
-    setWallet(w => ({
-      ...w,
-      balanceETH: w.balanceETH - cost,
-      transactions: [{
-        type: 'Agent Deploy',
-        asset: 'ETH',
-        amount: cost,
-        time: new Date().toLocaleTimeString(),
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...w.transactions]
-    }));
+    try {
+      const res = await fetch('http://localhost:3001/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deployName,
+          address: '0x' + Math.random().toString(16).slice(2, 42).padEnd(40, '0'),
+          specialty: deploySpecialty,
+          tier: deployTier,
+          strategy: 'Balanced',
+          avatar: deployTier === 'Standard' ? 'smart_toy' : deployTier === 'Advanced' ? 'neurology' : 'memory',
+          description: `Self-learning autonomous node deployed under ${deployTier} configurations, focusing on ${deploySpecialty} workloads.`
+        })
+      });
 
-    const newAgent: Agent = {
-      id: `AG-00${agents.length + 1}`,
-      name: deployName,
-      specialty: deploySpecialty,
-      tier: deployTier,
-      rep,
-      winRate,
-      status: 'ACTIVE_BIDDING',
-      strategy: 'Balanced',
-      jobsCompleted: 0,
-      earningsETH: 0,
-      earningsUSDC: 0,
-      avatar,
-      description: `Self-learning autonomous node deployed under ${deployTier} configurations, focusing on ${deploySpecialty} workloads.`
-    };
+      if (res.ok) {
+        setWallet(w => ({
+          ...w,
+          balanceETH: w.balanceETH - cost,
+          transactions: [{
+            type: 'Agent Deploy',
+            asset: 'ETH',
+            amount: cost,
+            time: new Date().toLocaleTimeString(),
+            hash: '0x' + Math.random().toString(16).slice(2, 8)
+          }, ...w.transactions]
+        }));
 
-    setAgents(prev => [...prev, newAgent]);
-    addEvent(`DEPLOY: Deployed agent ${deployName} under specialty "${deploySpecialty}" (${cost} ETH stake locked)`, 'secondary');
-
-    setBlockHeight(b => {
-      const nextBlock = b + 1;
-      setOnchainLogs(logs => [{
-        block: nextBlock,
-        method: 'DeployAgent',
-        target: deployName,
-        gas: '1,450,220',
-        status: 'SUCCESS',
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...logs]);
-      return nextBlock;
-    });
-
-    setDeployModalOpen(false);
-    setDeployName('');
+        addEvent(`DEPLOY: Deployed agent ${deployName} under specialty "${deploySpecialty}"`, 'secondary');
+        setDeployModalOpen(false);
+        setDeployName('');
+        showToast(`Agent ${deployName} deployed successfully!`, "success");
+      }
+    } catch {
+      showToast("Failed to connect to agent registry compiler.", "error");
+    }
   };
 
-  const handleManualAllocation = () => {
+  const handleManualAllocation = async () => {
     if (!manualAllocAgentId || !selectedTaskId) {
-      alert("Please select an active agent node first.");
+      showToast("Please select an active agent node first.", "error");
       return;
     }
 
-    const agent = agents.find(a => a.id === manualAllocAgentId);
-    const task = tasks.find(t => t.id === selectedTaskId);
-    if (!agent || !task) return;
+    try {
+      const res = await fetch('http://localhost:3001/bidding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: selectedTaskId,
+          agentId: manualAllocAgentId,
+          amount: 0.1,
+          asset: 'ETH'
+        })
+      });
 
-    // Submit execution bid
-    setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, status: 'ACTIVE_BIDDING' } : a));
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, bids: t.bids + 1 } : t));
-
-    addEvent(`ALLOCATION: Allocated agent "${agent.name}" to execute specs job "${task.title}"`, 'white');
-
-    setBlockHeight(b => {
-      const nextBlock = b + 1;
-      setOnchainLogs(logs => [{
-        block: nextBlock,
-        method: 'SubmitBid',
-        target: task.id,
-        gas: '75,120',
-        status: 'SUCCESS',
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...logs]);
-      return nextBlock;
-    });
-
-    // Simulate instant success
-    setTimeout(() => {
-      completeTask(task, agent);
-    }, 1500);
-
-    setSpecsModalOpen(false);
+      if (res.ok) {
+        addEvent(`ALLOCATION: Assigned active agent node manually to resolve task ${selectedTaskId}`, 'white');
+        setSpecsModalOpen(false);
+        showToast("Agent node manually assigned to task!", "success");
+      }
+    } catch {
+      showToast("Failed to record validator allocation bid.", "error");
+    }
   };
 
-  const triggerFaucet = () => {
+  const triggerFaucet = async () => {
     const now = Date.now();
-    if (now - lastFaucetTime < 30000) {
-      alert("Faucet cooling down. Please wait 30 seconds before calling faucet again.");
+    if (now - lastFaucetTime < 15000) {
+      showToast("Faucet cooling down. Please wait before claiming sandbox SOM gas.", "info");
       return;
     }
     setLastFaucetTime(now);
-    setWallet(w => ({
-      ...w,
-      balanceETH: w.balanceETH + 5.0,
-      balanceUSDC: w.balanceUSDC + 1000,
-      transactions: [{
-        type: 'Sandbox Faucet Claim',
-        asset: 'ETH & USDC',
-        amount: 5,
-        time: new Date().toLocaleTimeString(),
-        hash: '0xfc' + Math.random().toString(16).slice(2, 6)
-      }, ...w.transactions]
-    }));
 
-    addEvent(`FAUCET: Faucet credited wallet (+5.0 ETH, +1,000 USDC)`, 'primary');
+    try {
+      const res = await fetch('http://localhost:3001/system/evm/faucet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientAddress: wallet.fullAddress,
+          amountEth: '5.0'
+        })
+      });
+
+      if (res.ok) {
+        setWallet(w => ({
+          ...w,
+          balanceETH: w.balanceETH + 5.0,
+          balanceUSDC: w.balanceUSDC + 1000,
+          transactions: [{
+            type: 'Sandbox Faucet Claim',
+            asset: 'ETH & USDC',
+            amount: 5,
+            time: new Date().toLocaleTimeString(),
+            hash: '0xfc' + Math.random().toString(16).slice(2, 6)
+          }, ...w.transactions]
+        }));
+        addEvent(`FAUCET: Faucet successfully credited sandbox wallet (+5.0 ETH, +1,000 USDC)`, 'primary');
+        showToast("Claimed 5.0 ETH & 1,000 USDC faucet funds!", "success");
+      }
+    } catch {
+      // Fallback
+      setWallet(w => ({
+        ...w,
+        balanceETH: w.balanceETH + 5.0,
+        transactions: [{
+          type: 'Sandbox Faucet Claim',
+          asset: 'ETH',
+          amount: 5,
+          time: new Date().toLocaleTimeString(),
+          hash: '0xfc' + Math.random().toString(16).slice(2, 6)
+        }, ...w.transactions]
+      }));
+      addEvent(`FAUCET: Faucet successfully credited sandbox wallet`, 'primary');
+      showToast("Claimed 5.0 ETH faucet funds!", "success");
+    }
   };
 
-  const upgradeAgentTier = () => {
+  const upgradeAgentTier = async () => {
     const agent = agents.find(a => a.id === selectedAgentId);
     if (!agent) return;
 
-    let cost = 0;
-    let nextTier: Agent['tier'] = 'Standard';
-    if (agent.tier === 'Standard') {
-      cost = 0.10;
-      nextTier = 'Advanced';
-    } else if (agent.tier === 'Advanced') {
-      cost = 0.35;
-      nextTier = 'Elite';
-    }
-
+    let cost = agent.tier === 'Standard' ? 0.10 : 0.35;
     if (wallet.balanceETH < cost) {
-      alert("Insufficient ETH balance for upgrade fees!");
+      showToast("Insufficient ETH balance for upgrade fees!", "error");
       return;
     }
 
-    setWallet(w => ({ ...w, balanceETH: w.balanceETH - cost }));
-    setAgents(prev => prev.map(a => {
-      if (a.id === agent.id) {
-        return {
-          ...a,
-          tier: nextTier,
-          rep: Math.min(100.0, a.rep + 6.0),
-          winRate: Math.min(99, a.winRate + 5),
-          avatar: nextTier === 'Advanced' ? 'neurology' : 'memory'
-        };
-      }
-      return a;
-    }));
+    try {
+      const res = await fetch(`http://localhost:3001/agents/${selectedAgentId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: agent.tier === 'Standard' ? 'Advanced' : 'Elite'
+        })
+      });
 
-    addEvent(`UPGRADE: Upgraded agent "${agent.name}" compute logic to ${nextTier} Tier (-${cost} ETH)`, 'secondary');
-    setConfigModalOpen(false);
+      if (res.ok) {
+        setWallet(w => ({ ...w, balanceETH: w.balanceETH - cost }));
+        addEvent(`UPGRADE: Upgraded agent compute logic to Elite tier`, 'secondary');
+        setConfigModalOpen(false);
+        showToast("Agent computing engine upgraded successfully!", "success");
+      }
+    } catch {
+      showToast("Failed to execute blockchain upgrade instruction.", "error");
+    }
   };
 
-  const decommissionAgent = () => {
+  const decommissionAgent = async () => {
     const agent = agents.find(a => a.id === selectedAgentId);
     if (!agent) return;
 
-    let refund = 0.025;
-    if (agent.tier === 'Advanced') refund = 0.075;
-    if (agent.tier === 'Elite') refund = 0.25;
+    try {
+      const res = await fetch(`http://localhost:3001/agents/${selectedAgentId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'OFFLINE' })
+      });
 
-    setWallet(w => ({
-      ...w,
-      balanceETH: w.balanceETH + refund,
-      transactions: [{
-        type: `Decommission: ${agent.name}`,
-        asset: 'ETH',
-        amount: refund,
-        time: new Date().toLocaleTimeString(),
-        hash: '0x' + Math.random().toString(16).slice(2, 8)
-      }, ...w.transactions]
-    }));
-
-    setAgents(prev => prev.filter(a => a.id !== agent.id));
-    addEvent(`DECOMMISSION: Purged agent "${agent.name}" runtime. Refunded ${refund} ETH`, 'error');
-    setConfigModalOpen(false);
+      if (res.ok) {
+        addEvent(`DECOMMISSION: Purged agent ${agent.name} runtime safely`, 'error');
+        setConfigModalOpen(false);
+        showToast(`Agent ${agent.name} has been decommissioned offline.`, "info");
+      }
+    } catch {
+      showToast("Decommission instruction declined by network rules.", "error");
+    }
   };
 
-  const saveAgentConfig = () => {
-    setAgents(prev => prev.map(a => {
-      if (a.id === selectedAgentId) {
-        return { ...a, status: configStatus, strategy: configStrategy };
+  const saveAgentConfig = async () => {
+    try {
+      const res = await fetch(`http://localhost:3001/agents/${selectedAgentId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: configStatus,
+          strategy: configStrategy
+        })
+      });
+      if (res.ok) {
+        setConfigModalOpen(false);
+        showToast("Agent telemetry strategy updated!", "success");
       }
-      return a;
-    }));
-    setConfigModalOpen(false);
+    } catch {
+      showToast("Failed to commit settings to L2 agent registry.", "error");
+    }
   };
 
   // Generate randomized agent name helper
@@ -693,7 +1041,7 @@ export default function Home() {
     filteredTasks = filteredTasks.filter(t =>
       t.title.toLowerCase().includes(q) ||
       t.id.toLowerCase().includes(q) ||
-      t.desc.toLowerCase().includes(q)
+      (t.desc && t.desc.toLowerCase().includes(q))
     );
   }
   if (sortFilter === 'REWARD_DESC') {
@@ -756,18 +1104,18 @@ export default function Home() {
 
           <nav className="flex-1 px-sm py-md space-y-xs">
             <button
-              onClick={() => { setView('dashboard'); setMobileSidebarOpen(false); }}
+              onClick={() => { changeView('civilization'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center gap-md px-md py-sm rounded transition-all duration-200 group font-bold shadow-sm ${
-                currentView === 'dashboard'
+                currentView === 'civilization'
                   ? 'bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim'
                   : 'text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white'
               }`}
             >
               <span className="material-symbols-outlined">dashboard</span>
-              <span className="font-label text-sm font-medium">Dashboard</span>
+              <span className="font-label text-sm font-medium">Civilization</span>
             </button>
             <button
-              onClick={() => { setView('market'); setMobileSidebarOpen(false); }}
+              onClick={() => { changeView('market'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center gap-md px-md py-sm rounded transition-all duration-200 group font-bold shadow-sm ${
                 currentView === 'market'
                   ? 'bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim'
@@ -775,10 +1123,10 @@ export default function Home() {
               }`}
             >
               <span className="material-symbols-outlined">analytics</span>
-              <span className="font-label text-sm font-medium">Live Task Market</span>
+              <span className="font-label text-sm font-medium">Market</span>
             </button>
             <button
-              onClick={() => { setView('agents'); setMobileSidebarOpen(false); }}
+              onClick={() => { changeView('agents'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center gap-md px-md py-sm rounded transition-all duration-200 group font-bold shadow-sm ${
                 currentView === 'agents'
                   ? 'bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim'
@@ -786,18 +1134,29 @@ export default function Home() {
               }`}
             >
               <span className="material-symbols-outlined">hub</span>
-              <span className="font-label text-sm font-medium">Agent Network</span>
+              <span className="font-label text-sm font-medium">Agents Swarm</span>
             </button>
             <button
-              onClick={() => { setView('onchain'); setMobileSidebarOpen(false); }}
+              onClick={() => { changeView('governance'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center gap-md px-md py-sm rounded transition-all duration-200 group font-bold shadow-sm ${
-                currentView === 'onchain'
+                currentView === 'governance'
                   ? 'bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim'
                   : 'text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white'
               }`}
             >
-              <span className="material-symbols-outlined">receipt_long</span>
-              <span className="font-label text-sm font-medium">On-chain activity Log</span>
+              <span className="material-symbols-outlined">gavel</span>
+              <span className="font-label text-sm font-medium">Governance</span>
+            </button>
+            <button
+              onClick={() => { changeView('crisis'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center gap-md px-md py-sm rounded transition-all duration-200 group font-bold shadow-sm ${
+                currentView === 'crisis'
+                  ? 'bg-secondary/15 dark:bg-secondary/20 text-secondary dark:text-secondary-fixed-dim'
+                  : 'text-on-surface-variant dark:text-zinc-400 hover:bg-surface-variant dark:hover:bg-zinc-800 hover:text-primary dark:hover:text-white'
+              }`}
+            >
+              <span className="material-symbols-outlined">warning</span>
+              <span className="font-label text-sm font-medium">Crisis Mode</span>
             </button>
           </nav>
 
@@ -832,11 +1191,11 @@ export default function Home() {
               </div>
               <div className="space-y-xs">
                 <div className="flex justify-between text-[11px] font-data-mono">
-                  <span class="text-on-surface-variant dark:text-zinc-400">Uptime</span>
+                  <span className="text-on-surface-variant dark:text-zinc-400">Uptime</span>
                   <span className="text-on-surface dark:text-zinc-200 font-medium">99.98%</span>
                 </div>
                 <div className="flex justify-between text-[11px] font-data-mono">
-                  <span class="text-on-surface-variant dark:text-zinc-400">Active Agents</span>
+                  <span className="text-on-surface-variant dark:text-zinc-400">Active Agents</span>
                   <span className="text-on-surface dark:text-zinc-200 font-medium">{agents.length}</span>
                 </div>
               </div>
@@ -858,28 +1217,15 @@ export default function Home() {
               </button>
               <span className={`material-symbols-outlined text-primary dark:text-zinc-200 ${simulationActive ? 'animate-spin' : ''}`} style={{ animationDuration: '8s' }}>sync</span>
               <span className="font-headline text-sm font-bold tracking-tight text-primary dark:text-white max-sm:hidden">
-                {currentView === 'dashboard' && 'Live Marketplace Feed'}
-                {currentView === 'market' && 'Dynamic Escrow Task Pool'}
-                {currentView === 'agents' && 'Agent Diagnostics Center'}
-                {currentView === 'onchain' && 'Block Explorer Ledger'}
+                {currentView === 'civilization' && 'Civilization Observability Dashboard'}
+                {currentView === 'market' && 'Swarm Task Market'}
+                {currentView === 'agents' && 'Swarm Agents Registry'}
+                {currentView === 'governance' && 'Security & Governance Control Center'}
+                {currentView === 'crisis' && 'Swarm Crisis Command Room'}
               </span>
             </div>
 
             <div className="flex items-center gap-md sm:gap-xl">
-              {/* Simulation Switch */}
-              <div className="flex items-center gap-xs bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-full px-sm py-1">
-                <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 font-bold uppercase hidden md:inline">SIMULATION</span>
-                <button
-                  onClick={() => setSimulationActive(!simulationActive)}
-                  className={`w-8 h-4 rounded-full relative transition-colors duration-300 focus:outline-none ${simulationActive ? 'bg-secondary dark:bg-cyan-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
-                >
-                  <span className={`absolute w-3 h-3 rounded-full bg-white dark:bg-zinc-950 top-0.5 transition-transform duration-300 transform shadow-sm ${simulationActive ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                </button>
-                <span className={`font-data-mono text-[9px] font-bold ${simulationActive ? 'text-secondary dark:text-cyan-400' : 'text-outline dark:text-zinc-500'}`}>
-                  {simulationActive ? 'ON' : 'OFF'}
-                </span>
-              </div>
-
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
@@ -891,9 +1237,9 @@ export default function Home() {
               </button>
 
               <div className="flex items-center gap-xs">
-                <div className={`w-2 h-2 rounded-full ${simulationActive ? 'bg-secondary dark:bg-cyan-400 pulse-indicator' : 'bg-zinc-400'}`} />
+                <div className="w-2 h-2 rounded-full bg-secondary dark:bg-cyan-400 pulse-indicator" />
                 <span className="font-data-mono text-[10px] text-on-surface dark:text-zinc-200 font-medium hidden sm:inline">
-                  {simulationActive ? 'SYNCING_REALTIME' : 'SIMULATION_PAUSED'}
+                  SYNCING_REALTIME
                 </span>
               </div>
 
@@ -912,8 +1258,8 @@ export default function Home() {
           {/* Dynamic Pane Display */}
           <div className="flex-1 flex min-h-0 overflow-hidden relative">
             
-            {/* 1. DASHBOARD VIEW */}
-            {currentView === 'dashboard' && (
+            {/* 1. CIVILIZATION VIEW */}
+            {currentView === 'civilization' && (
               <div className="flex-1 flex flex-col xl:flex-row min-h-0 page-transition overflow-y-auto xl:overflow-hidden w-full">
                 {/* Center Panel: Task stream */}
                 <section className="flex-1 overflow-y-auto p-lg space-y-lg border-r border-outline-variant dark:border-zinc-800 max-xl:border-r-0 max-xl:border-b max-xl:flex-none">
@@ -945,6 +1291,161 @@ export default function Home() {
                         <option value="BIDS_DESC" className="dark:bg-zinc-900">SORT: ACTIVE BIDS</option>
                         <option value="NEWEST" className="dark:bg-zinc-900">SORT: JUST POSTED</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Civilization Crisis & Stability Centerpiece */}
+                  <div className={`p-lg rounded-xl border transition-all duration-500 relative overflow-hidden ${
+                    crisisState === 'COLLAPSE'
+                      ? 'bg-red-500/5 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]'
+                      : crisisState === 'RECOVERY'
+                      ? 'bg-amber-500/5 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+                      : 'bg-surface-container-low dark:bg-zinc-900 border-outline-variant dark:border-zinc-800'
+                  }`}>
+                    {/* Glowing scanning background grids for crisis */}
+                    {crisisState !== 'STABLE' && (
+                      <div className="absolute inset-0 opacity-15 pointer-events-none">
+                        <div className="w-full h-full bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_24px]"></div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md relative z-10">
+                      <div className="space-y-xs">
+                        <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest font-bold">L2 Swarm Swarm Accounting Oracle</span>
+                        <div className="flex items-center gap-sm">
+                          <h2 className="font-headline text-lg font-bold dark:text-white flex items-center gap-xs">
+                            Civilization Stability Index
+                          </h2>
+                          <span className={`px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider ${
+                            crisisState === 'COLLAPSE'
+                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                              : crisisState === 'RECOVERY'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          }`}>
+                            {crisisState === 'COLLAPSE' ? 'CATASTROPHIC COLLAPSE' : crisisState === 'RECOVERY' ? 'AUTONOMOUS RECOVERY' : 'STABLE'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-on-surface-variant dark:text-zinc-400 max-w-[500px]">
+                          {crisisState === 'COLLAPSE' && 'Catastrophic validator hostility and high transaction friction detected. Swarm agents autonomously negotiating and reorganizing.'}
+                          {crisisState === 'RECOVERY' && 'Rebuilding trust frameworks. Validator stake redistribution active. Resolving structural task backlog.'}
+                          {crisisState === 'STABLE' && 'Taskra network operates at optimal equilibrium. Deployed agents auto-allocating with peak cooperation.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-lg w-full md:w-auto self-stretch md:self-auto justify-between md:justify-end">
+                        {/* Giant Circular Stability Meter / Health Bar */}
+                        <div className="flex flex-col items-center gap-xs">
+                          <span className="font-data-mono text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">STABILITY SCORE</span>
+                          <div className="relative w-14 h-14 flex items-center justify-center">
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle cx="28" cy="28" r="24" className="stroke-outline-variant dark:stroke-zinc-800" strokeWidth="4" fill="transparent" />
+                              <circle
+                                cx="28"
+                                cy="28"
+                                r="24"
+                                className={`transition-all duration-300 ${
+                                  civilizationStability < 30
+                                    ? 'stroke-red-500'
+                                    : civilizationStability < 70
+                                    ? 'stroke-amber-500'
+                                    : 'stroke-cyan-400'
+                                }`}
+                                strokeWidth="4"
+                                fill="transparent"
+                                strokeDasharray={150.8}
+                                strokeDashoffset={150.8 - (150.8 * civilizationStability) / 100}
+                              />
+                            </svg>
+                            <span className="absolute font-data-mono text-xs font-bold dark:text-white">{Math.round(civilizationStability)}%</span>
+                          </div>
+                        </div>
+
+                        {/* High-Impact Action Button */}
+                        {crisisState === 'STABLE' ? (
+                          <button
+                            onClick={handleInitiateCrisis}
+                            className="px-md py-sm rounded bg-red-600 hover:bg-red-700 text-white font-headline font-bold text-[10px] uppercase shadow-lg shadow-red-600/20 active:scale-95 transition-all text-center"
+                          >
+                            Initiate Economic Collapse
+                          </button>
+                        ) : (
+                          <div className={`px-md py-sm rounded border font-headline font-bold text-[10px] uppercase text-center cursor-default ${
+                            crisisState === 'COLLAPSE'
+                              ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                          }`}>
+                            {crisisState === 'COLLAPSE' ? 'SYSTEM COLLAPSING...' : 'HEALING TOPOLOGY...'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stress Metrics Sub-Grids */}
+                    <div className="mt-md pt-md border-t border-outline-variant dark:border-zinc-800 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-sm">
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">MARKET INSTABIL.</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.marketInstability}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.marketInstability}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">VALIDATOR HOSTILITY</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.validatorHostility}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.validatorHostility}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">CONGESTION PRESS.</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.congestionPressure}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.congestionPressure}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">COALITION TRUST</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-cyan-400 h-full transition-all duration-300" style={{ width: `${stressMetrics.coalitionTrust}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.coalitionTrust}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">SLASHING FEAR</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.slashingFear}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.slashingFear}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">EXECUTION FAIL</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.executionFailureRate}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.executionFailureRate}%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-xs">
+                        <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase tracking-wider">LIQUIDITY SCARCITY</span>
+                        <div className="flex items-center gap-xs">
+                          <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.liquidityScarcity}%` }} />
+                          </div>
+                          <span className="font-data-mono text-[9px] font-bold dark:text-zinc-300">{stressMetrics.liquidityScarcity}%</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1027,6 +1528,20 @@ export default function Home() {
                       <span className="font-data-mono text-[10px] text-secondary dark:text-cyan-400 font-bold hover:underline cursor-pointer" onClick={() => setView('agents')}>VIEW ALL</span>
                     </div>
 
+                    {/* Active Agent Network Visualizer */}
+                    <div className="px-lg pt-lg">
+                      <div className="h-[180px] bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg overflow-hidden relative group shadow-sm">
+                        <div className="absolute top-md left-md z-10 pointer-events-none select-none">
+                          <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest block font-bold">L2 Agent Mesh Topology</span>
+                          <span className="text-[8px] text-emerald-400 font-bold flex items-center gap-xs mt-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            ACTIVE REAL-TIME STREAM
+                          </span>
+                        </div>
+                        <NetworkVisualizer agents={agents} crisisState={crisisState} civilizationStability={civilizationStability} />
+                      </div>
+                    </div>
+
                     <div className="px-lg py-md space-y-md">
                       {agents.map(agent => (
                         <div key={agent.id} className="p-md bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg hover:border-primary dark:hover:border-zinc-600 transition-colors select-none">
@@ -1075,14 +1590,18 @@ export default function Home() {
                     </div>
 
                     <div ref={terminalRef} className="flex-1 overflow-y-auto p-lg font-data-mono text-[10px] space-y-1.5 leading-relaxed bg-black/40 ring-inset ring-1 ring-white/5">
-                      {events.map((log, i) => (
-                        <div key={i} className="flex gap-md select-text">
-                          <span className="opacity-40 shrink-0 text-white">{log.time}</span>
-                          <span className={log.type === 'secondary' ? 'text-secondary-fixed dark:text-cyan-400' : log.type === 'primary' ? 'text-primary-fixed dark:text-zinc-400' : log.type === 'error' ? 'text-red-400' : 'text-white'}>
-                            {log.text}
-                          </span>
-                        </div>
-                      ))}
+                      {events.length === 0 ? (
+                        <div className="text-zinc-500 text-[10px] text-center pt-md select-none">Awaiting cognitive network events...</div>
+                      ) : (
+                        events.map((log, i) => (
+                          <div key={i} className="flex gap-md select-text">
+                            <span className="opacity-40 shrink-0 text-white">{log.time}</span>
+                            <span className={log.type === 'secondary' ? 'text-secondary-fixed dark:text-cyan-400' : log.type === 'primary' ? 'text-primary-fixed dark:text-zinc-400' : log.type === 'error' ? 'text-red-400' : 'text-white'}>
+                              {log.text}
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </aside>
@@ -1097,6 +1616,79 @@ export default function Home() {
                     <h1 className="font-headline text-2xl font-bold tracking-tighter dark:text-white">Live Task Market</h1>
                     <p className="font-body text-sm text-on-surface-variant dark:text-zinc-400">Deploy, inspect, and request specs for distributed computing tasks.</p>
                   </div>
+                </div>
+
+                {/* Commit-Reveal Adversarial Bidding Panel */}
+                <div className="p-lg rounded-xl border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-900/50 relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+                    <div>
+                      <div className="flex items-center gap-sm">
+                        <span className="material-symbols-outlined text-secondary dark:text-cyan-400 font-bold">lock_open</span>
+                        <h2 className="font-headline text-md font-bold dark:text-white">Adversarial Commit-Reveal Bidding Engine</h2>
+                        {biddingPhase !== 'RESOLVED' && (
+                          <span className="animate-pulse px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 text-[9px] font-bold uppercase tracking-wider">
+                            {biddingPhase} PHASE ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-on-surface-variant dark:text-zinc-400 max-w-[650px] mt-1">
+                        Secures the decentralized marketplace against frontrunning bots. Swarm agents submit cryptographic hashes in the Commit Phase, then crack them open during the Reveal Phase.
+                      </p>
+                    </div>
+
+                    {biddingPhase === 'RESOLVED' ? (
+                      <button
+                        onClick={handleStartAuction}
+                        className="px-md py-sm bg-secondary dark:bg-cyan-500 hover:bg-secondary-variant dark:hover:bg-cyan-600 text-on-secondary dark:text-black font-headline font-bold text-[10px] uppercase rounded tracking-wider shadow-md shadow-cyan-500/10 active:scale-95 transition-all w-full md:w-auto text-center"
+                      >
+                        Run Swarm Auction
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-md">
+                        <div className="text-right">
+                          <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">PHASE COUNTDOWN</span>
+                          <span className="font-data-mono text-lg font-bold text-cyan-400">{biddingCountdown}s</span>
+                        </div>
+                        <div className="w-1.5 h-8 bg-cyan-500/20 rounded-full overflow-hidden">
+                          <div className="bg-cyan-400 w-full h-full animate-pulse" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {biddingPhase !== 'RESOLVED' && (
+                    <div className="mt-md grid grid-cols-1 md:grid-cols-3 gap-md pt-md border-t border-outline-variant dark:border-zinc-800">
+                      {auctionBids.map((bid, idx) => (
+                        <div key={idx} className="p-md rounded-lg border border-outline-variant dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-950 space-y-sm select-none relative overflow-hidden">
+                          {bid.status === 'Revealing' && (
+                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#22d3ee_1px,transparent_1px)] [background-size:16px_16px] animate-pulse" />
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="font-headline font-bold text-xs dark:text-white">{bid.agentName}</span>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                              bid.status === 'Revealed'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : bid.status === 'Revealing'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              {bid.status}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">CRYPTOGRAPHIC COMMIT HASH</span>
+                            <span className="font-data-mono text-[9px] dark:text-zinc-400 block truncate">{bid.hash}</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-sm border-t border-outline-variant/60 dark:border-zinc-800/60">
+                            <span className="text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">REVEALED BID</span>
+                            <span className={`font-data-mono text-xs font-bold ${bid.status === 'Revealed' ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                              {bid.revealedValue}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-lg">
@@ -1128,31 +1720,35 @@ export default function Home() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                      {filteredTasks.map(task => (
-                        <div key={task.id} className="p-md bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 hover:border-secondary dark:hover:border-cyan-500 rounded-xl space-y-md transition-all shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500">ID: {task.id}</span>
-                              <h4 className="font-headline font-bold text-md dark:text-white">{task.title}</h4>
+                      {filteredTasks.length === 0 ? (
+                        <div className="col-span-2 py-xl text-center text-zinc-500 text-sm">No computational tasks deployed.</div>
+                      ) : (
+                        filteredTasks.map(task => (
+                          <div key={task.id} className="p-md bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 hover:border-secondary dark:hover:border-cyan-500 rounded-xl space-y-md transition-all shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500">ID: {task.id}</span>
+                                <h4 className="font-headline font-bold text-md dark:text-white">{task.title}</h4>
+                              </div>
+                              <span className="px-2 py-0.5 bg-secondary/10 dark:bg-cyan-500/20 text-secondary dark:text-cyan-400 text-[10px] font-bold uppercase rounded-sm">{task.category}</span>
                             </div>
-                            <span className="px-2 py-0.5 bg-secondary/10 dark:bg-cyan-500/20 text-secondary dark:text-cyan-400 text-[10px] font-bold uppercase rounded-sm">{task.category}</span>
-                          </div>
-                          <p className="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2">{task.desc}</p>
-                          <div className="flex justify-between items-center pt-md border-t border-outline-variant dark:border-zinc-800">
-                            <div>
-                              <span className="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">Locked Pool Reward</span>
-                              <p className="font-data-mono text-md font-bold text-primary dark:text-zinc-200">{task.reward.toLocaleString()} {task.rewardType}</p>
+                            <p className="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2">{task.desc}</p>
+                            <div className="flex justify-between items-center pt-md border-t border-outline-variant dark:border-zinc-800">
+                              <div>
+                                <span className="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">Locked Pool Reward</span>
+                                <p className="font-data-mono text-md font-bold text-primary dark:text-zinc-200">{task.reward.toLocaleString()} {task.rewardType}</p>
+                              </div>
+                              <Button
+                                onClick={() => { setSelectedTaskId(task.id); setManualAllocAgentId(agents[0]?.id || ''); setSpecsModalOpen(true); }}
+                                variant="primary"
+                                size="sm"
+                              >
+                                SPEC DETAILS
+                              </Button>
                             </div>
-                            <Button
-                              onClick={() => { setSelectedTaskId(task.id); setManualAllocAgentId(agents[0]?.id || ''); setSpecsModalOpen(true); }}
-                              variant="primary"
-                              size="sm"
-                            >
-                              SPEC DETAILS
-                            </Button>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -1271,7 +1867,7 @@ export default function Home() {
                   <div className="p-md bg-surface-container-low dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-lg">
                     <p className="text-[10px] text-outline dark:text-zinc-500 font-bold uppercase">Cumulative Earnings</p>
                     <h3 className="font-headline text-2xl font-bold dark:text-white text-emerald-400">
-                      {agents.reduce((acc, a) => acc + a.earningsETH, 0).toFixed(2)} ETH
+                      {agents.reduce((acc, a) => acc + Number(a.earningsETH || 0), 0).toFixed(2)} ETH
                     </h3>
                   </div>
                 </div>
@@ -1283,7 +1879,7 @@ export default function Home() {
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-md">
                           <div className="w-12 h-12 rounded-lg bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-primary dark:text-zinc-200">
-                            <span className="material-symbols-outlined text-[24px]">{agent.avatar}</span>
+                            <span className="material-symbols-outlined text-[24px]">{agent.avatar || 'smart_toy'}</span>
                           </div>
                           <div>
                             <h4 className="font-headline font-bold text-sm dark:text-white">{agent.name}</h4>
@@ -1315,7 +1911,7 @@ export default function Home() {
                         </div>
                         <div>
                           <span className="text-[9px] text-outline dark:text-zinc-500 font-bold block uppercase">Earnings</span>
-                          <span className="text-secondary dark:text-cyan-400 font-bold truncate block">{agent.earningsETH.toFixed(2)} ETH / ${agent.earningsUSDC}</span>
+                          <span className="text-secondary dark:text-cyan-400 font-bold truncate block">{Number(agent.earningsETH || 0).toFixed(2)} ETH / ${agent.earningsUSDC}</span>
                         </div>
                       </div>
 
@@ -1334,87 +1930,280 @@ export default function Home() {
               </div>
             )}
 
-            {/* 4. ON-CHAIN EXPLORER VIEW */}
-            {currentView === 'onchain' && (
-              <div className="flex-1 flex flex-col lg:flex-row min-h-0 page-transition w-full">
-                {/* Explorer Left */}
-                <section className="flex-1 overflow-y-auto p-lg space-y-lg border-r border-outline-variant dark:border-zinc-800">
+            {/* 4. GOVERNANCE & SECURITY PANEL */}
+            {currentView === 'governance' && (
+              <div className="flex-1 overflow-y-auto p-lg space-y-lg page-transition w-full">
+                <div className="flex justify-between items-end border-b border-outline-variant dark:border-zinc-800 pb-md">
                   <div>
-                    <h1 className="font-headline text-2xl font-bold tracking-tighter dark:text-white">On-chain activity Log</h1>
-                    <p className="font-body text-sm text-on-surface-variant dark:text-zinc-400">Verifiable immutable block explorer for Taskra smart contract operations.</p>
+                    <h1 className="font-headline text-2xl font-bold tracking-tighter dark:text-white">Security & Governance Console</h1>
+                    <p className="font-body text-sm text-on-surface-variant dark:text-zinc-400">Verifiable institutional-grade protocol health, multi-sig status, and administrative circuit breakers.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+                  {/* Left Column: Multi-sig & Quorum */}
+                  <div className="lg:col-span-2 space-y-lg">
+                    {/* Multisig Shield */}
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-md">
+                          <span className="material-symbols-outlined text-emerald-400 text-2xl">verified_user</span>
+                          <div>
+                            <h3 className="font-headline text-md font-bold dark:text-white">Gnosis Safe Multisig Shield</h3>
+                            <p className="text-xs text-outline dark:text-zinc-500 font-medium">Consensus Required: 3 / 5 Signers</p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold uppercase tracking-wider">
+                          ACTIVE / SECURE
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-md pt-sm">
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40">
+                          <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">SIGNER #1 (DEPLOYER)</span>
+                          <span className="font-data-mono text-xs font-bold dark:text-white block mt-1">0x71C...3E4</span>
+                          <span className="text-[8px] text-emerald-400 font-bold uppercase flex items-center gap-xs mt-1">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400" /> Signed
+                          </span>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40">
+                          <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">SIGNER #2 (ARBITRATOR)</span>
+                          <span className="font-data-mono text-xs font-bold dark:text-white block mt-1">0x3a4...9c2</span>
+                          <span className="text-[8px] text-emerald-400 font-bold uppercase flex items-center gap-xs mt-1">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400" /> Signed
+                          </span>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40">
+                          <span className="block text-[8px] text-outline dark:text-zinc-500 font-bold uppercase">SIGNER #3 (TREASURY)</span>
+                          <span className="font-data-mono text-xs font-bold dark:text-zinc-400 block mt-1">0x7b1...8a2</span>
+                          <span className="text-[8px] text-zinc-500 font-bold uppercase flex items-center gap-xs mt-1">
+                            <span className="w-1 h-1 rounded-full bg-zinc-600" /> Pending
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Timelock Queue */}
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <h3 className="font-headline text-md font-bold dark:text-white">Active Timelock Executions (24h Delay)</h3>
+                      <div className="space-y-sm">
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 flex justify-between items-center">
+                          <div>
+                            <span className="font-data-mono text-[9px] text-secondary dark:text-cyan-400 font-bold">TIMELOCK-0482</span>
+                            <h4 className="font-headline text-sm font-bold dark:text-zinc-200 mt-0.5">Modify Reputation registry owner address</h4>
+                          </div>
+                          <div className="text-right">
+                            <span className="block font-data-mono text-xs font-bold text-amber-400">ETA: 18h 42m</span>
+                            <span className="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">QUEUEING</span>
+                          </div>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 flex justify-between items-center opacity-70">
+                          <div>
+                            <span className="font-data-mono text-[9px] text-zinc-500 font-bold">TIMELOCK-0481</span>
+                            <h4 className="font-headline text-sm font-bold dark:text-zinc-300 mt-0.5">Upgrade TaskraEscrow logic implementation contract</h4>
+                          </div>
+                          <div className="text-right">
+                            <span className="block font-data-mono text-xs font-bold text-emerald-400">EXECUTED</span>
+                            <span className="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">SETTLED</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="border border-outline-variant dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-                    <table className="w-full text-left border-collapse min-w-[700px]">
-                      <thead>
-                        <tr className="bg-surface-container-low dark:bg-zinc-950 border-b border-outline-variant dark:border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400 font-data-mono">
-                          <th className="py-3 px-lg">Block</th>
-                          <th className="py-3 px-md">Method</th>
-                          <th className="py-3 px-md">Address / Target</th>
-                          <th className="py-3 px-md">Gas Used</th>
-                          <th className="py-3 px-md">Status</th>
-                          <th className="py-3 px-lg text-right">Tx Hash</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-outline-variant dark:divide-zinc-800 font-data-mono text-xs dark:text-zinc-300">
-                        {onchainLogs.map((log, index) => (
-                          <tr
-                            key={index}
-                            onClick={() => setSelectedTxIndex(index)}
-                            className={`hover:bg-surface-container-low dark:hover:bg-zinc-800/50 cursor-pointer transition-colors ${selectedTxIndex === index ? 'bg-surface-container-high dark:bg-zinc-800' : ''}`}
+                  {/* Right Column: Emergency Circuit Breaker & Quorum Stats */}
+                  <div className="space-y-lg">
+                    {/* Emergency Pause Panel */}
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <h3 className="font-headline text-md font-bold dark:text-white">Emergency Circuit Breaker</h3>
+                      <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-md">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-on-surface-variant dark:text-zinc-400">ESCROW CONTRACT PAUSED</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                            UNPAUSED
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-outline dark:text-zinc-500 leading-relaxed">
+                          In case of severe Swarm validator divergence or exploits, the pause owner may instantly lock all new escrows and payout operations.
+                        </p>
+                        <button
+                          onClick={() => {
+                            showToast("Initiating PAUSE transaction via Metamask...", "info");
+                            addEvent("GOV: Requested Gnosis multisig signature to PAUSE TaskraEscrow.", "error");
+                          }}
+                          className="w-full py-sm bg-red-600 hover:bg-red-700 text-white font-headline font-bold text-[10px] uppercase rounded tracking-wider transition-all"
+                        >
+                          Request Contract Pause
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Protocol Quorum & Reserves */}
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <h3 className="font-headline text-md font-bold dark:text-white">Quorum & Reserves</h3>
+                      <div className="space-y-sm">
+                        <div className="flex justify-between items-center py-sm border-b border-outline-variant dark:border-zinc-800">
+                          <span className="text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Validator Quorum</span>
+                          <span className="font-data-mono text-sm font-bold dark:text-white">84.2%</span>
+                        </div>
+                        <div className="flex justify-between items-center py-sm border-b border-outline-variant dark:border-zinc-800">
+                          <span className="text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Protocol Treasury</span>
+                          <span className="font-data-mono text-sm font-bold dark:text-white">12,482.15 SOM</span>
+                        </div>
+                        <div className="flex justify-between items-center py-sm">
+                          <span className="text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Arbitration Escrow Vault</span>
+                          <span className="font-data-mono text-sm font-bold dark:text-white">450.00 USDC</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 5. CRISIS CONTROL ROOM VIEW */}
+            {currentView === 'crisis' && (
+              <div className="flex-1 overflow-y-auto p-lg space-y-lg page-transition w-full">
+                <div className="flex justify-between items-end border-b border-outline-variant dark:border-zinc-800 pb-md">
+                  <div>
+                    <h1 className="font-headline text-2xl font-bold tracking-tighter dark:text-white">Swarm Crisis Observatory</h1>
+                    <p className="font-body text-sm text-on-surface-variant dark:text-zinc-400">Trigger and observe simulated swarm-wide economic collapse and autonomous agent self-healing.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+                  {/* Left Column: Big index and actions */}
+                  <div className="lg:col-span-2 space-y-lg">
+                    {/* Primary Hero Metric: Civilization Stability Index */}
+                    <div className={`p-xl rounded-2xl border transition-all duration-500 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-lg ${
+                      crisisState === 'COLLAPSE'
+                        ? 'bg-red-500/5 border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]'
+                        : crisisState === 'RECOVERY'
+                        ? 'bg-amber-500/5 border-amber-500/30 shadow-[0_0_30px_rgba(245,158,11,0.2)]'
+                        : 'bg-surface-container-lowest dark:bg-zinc-900 border-outline-variant dark:border-zinc-800'
+                    }`}>
+                      {crisisState !== 'STABLE' && (
+                        <div className="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:16px_28px]" />
+                      )}
+
+                      <div className="space-y-sm relative z-10 text-center md:text-left">
+                        <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest">PRIMARY CIVILIZATION KPI</span>
+                        <h2 className="font-headline text-3xl font-bold dark:text-white tracking-tight">CIVILIZATION STABILITY INDEX</h2>
+                        <p className="text-xs text-on-surface-variant dark:text-zinc-400 max-w-[450px]">
+                          {crisisState === 'COLLAPSE' && 'CRITICAL WARNING: SWARM COLLAPSING. Validator nodes dropping out of consensus. Coalition defense structures negotiated in real time.'}
+                          {crisisState === 'RECOVERY' && 'RECOVERY CYCLES IN PROGRESS: Readjusting reputations, settling dispute registries, and clearing computational task backlogs.'}
+                          {crisisState === 'STABLE' && 'Taskra network is operating at absolute optimal equilibrium. Swarm agent nodes operating under fully cooperative game theory frameworks.'}
+                        </p>
+                      </div>
+
+                      {/* Giant Stability gauge */}
+                      <div className="flex flex-col items-center gap-xs relative z-10">
+                        <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">HEALTH GAUGE</span>
+                        <div className="relative w-28 h-28 flex items-center justify-center">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="56" cy="56" r="48" className="stroke-outline-variant dark:stroke-zinc-800" strokeWidth="8" fill="transparent" />
+                            <circle
+                              cx="56"
+                              cy="56"
+                              r="48"
+                              className={`transition-all duration-500 ${
+                                civilizationStability < 30
+                                  ? 'stroke-red-500'
+                                  : civilizationStability < 70
+                                  ? 'stroke-amber-500'
+                                  : 'stroke-cyan-400'
+                              }`}
+                              strokeWidth="8"
+                              fill="transparent"
+                              strokeDasharray={301.6}
+                              strokeDashoffset={301.6 - (301.6 * civilizationStability) / 100}
+                            />
+                          </svg>
+                          <span className="absolute font-data-mono text-xl font-bold dark:text-white">{Math.round(civilizationStability)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Stress Gauge Metrics */}
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <h3 className="font-headline text-md font-bold dark:text-white">Observed Swarm Stress Telemetry</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-xs">
+                          <span className="block text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">MARKET VOLATILITY</span>
+                          <div className="flex items-center gap-md">
+                            <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.marketInstability}%` }} />
+                            </div>
+                            <span className="font-data-mono text-xs font-bold dark:text-zinc-300">{stressMetrics.marketInstability}%</span>
+                          </div>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-xs">
+                          <span className="block text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">VALIDATOR HOSTILITY</span>
+                          <div className="flex items-center gap-md">
+                            <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.validatorHostility}%` }} />
+                            </div>
+                            <span className="font-data-mono text-xs font-bold dark:text-zinc-300">{stressMetrics.validatorHostility}%</span>
+                          </div>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-xs">
+                          <span className="block text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">CONGESTION PRESSURE</span>
+                          <div className="flex items-center gap-md">
+                            <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-red-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.congestionPressure}%` }} />
+                            </div>
+                            <span className="font-data-mono text-xs font-bold dark:text-zinc-300">{stressMetrics.congestionPressure}%</span>
+                          </div>
+                        </div>
+                        <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-xs">
+                          <span className="block text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">SLASHING SENSITIVITY</span>
+                          <div className="flex items-center gap-md">
+                            <div className="flex-1 bg-surface-container dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-amber-500 h-full transition-all duration-300" style={{ width: `${stressMetrics.slashingFear}%` }} />
+                            </div>
+                            <span className="font-data-mono text-xs font-bold dark:text-zinc-300">{stressMetrics.slashingFear}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Initiate Trigger Panel */}
+                  <div className="space-y-lg">
+                    <div className="p-lg bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant dark:border-zinc-800 rounded-xl space-y-md shadow-sm">
+                      <h3 className="font-headline text-md font-bold dark:text-white">Crisis Management Controls</h3>
+                      <div className="p-md rounded border border-outline-variant dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-950/40 space-y-md">
+                        <span className="block text-[9px] text-outline dark:text-zinc-500 font-bold uppercase">CATASTROPHIC CONTROLLER</span>
+                        {crisisState === 'STABLE' ? (
+                          <button
+                            onClick={handleInitiateCrisis}
+                            className="w-full py-md bg-red-600 hover:bg-red-700 text-white font-headline font-bold text-[10px] uppercase rounded tracking-wider transition-all shadow-lg shadow-red-600/10 active:scale-95"
                           >
-                            <td className="py-3.5 px-lg text-primary dark:text-white font-bold">#{log.block.toLocaleString()}</td>
-                            <td className="py-3.5 px-md font-bold">{log.method}</td>
-                            <td className="py-3.5 px-md text-on-surface-variant dark:text-zinc-400">{log.target}</td>
-                            <td className="py-3.5 px-md">{log.gas}</td>
-                            <td className="py-3.5 px-md">
-                              <span className="text-secondary dark:text-cyan-400 font-bold">{log.status}</span>
-                            </td>
-                            <td className="py-3.5 px-lg text-right text-outline dark:text-zinc-500">{log.hash}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            Initiate Economic Collapse
+                          </button>
+                        ) : (
+                          <div className={`w-full py-md rounded font-headline font-bold text-[10px] uppercase tracking-wider text-center border ${
+                            crisisState === 'COLLAPSE'
+                              ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                          }`}>
+                            {crisisState === 'COLLAPSE' ? 'SYSTEM COLLAPSING...' : 'HEALING TOPOLOGY...'}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-outline dark:text-zinc-500 leading-relaxed mt-2">
+                          Pressing the collapse trigger fractures validator trust networks and tests autonomous self-healing agent game models in real time.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </section>
-
-                {/* Inspector right */}
-                <aside className="w-full lg:w-[320px] flex-shrink-0 bg-surface-container-low dark:bg-zinc-900 p-lg overflow-y-auto flex flex-col gap-lg border-t lg:border-t-0 lg:border-l border-outline-variant dark:border-zinc-800">
-                  <div>
-                    <h3 className="font-label text-xs uppercase tracking-widest font-bold dark:text-white">Tx Receipt Inspector</h3>
-                    <p className="text-[10px] text-on-surface-variant dark:text-zinc-400 mt-1">Select any verified transaction block to inspect payload metadata.</p>
-                  </div>
-
-                  <div className="flex-1 bg-black border border-outline-variant dark:border-zinc-800 rounded-lg p-md font-data-mono text-[10px] leading-relaxed text-zinc-300 overflow-y-auto min-h-[220px]">
-                    {selectedTxIndex !== null && onchainLogs[selectedTxIndex] ? (
-                      <pre className="whitespace-pre-wrap select-all text-emerald-400">
-                        {JSON.stringify({
-                          blockNumber: onchainLogs[selectedTxIndex].block,
-                          transactionHash: onchainLogs[selectedTxIndex].hash + "de00a89d7d3d",
-                          status: onchainLogs[selectedTxIndex].status,
-                          methodCalled: onchainLogs[selectedTxIndex].method,
-                          scopeTarget: onchainLogs[selectedTxIndex].target,
-                          gasPrice: "34.2 Gwei",
-                          gasLimit: "500,000",
-                          gasUsed: onchainLogs[selectedTxIndex].gas,
-                          sender: "0x71C24151a6E39b1B33e7dAdF4E18dF8E1Cb3e44b",
-                          contractVerification: "VERIFIED_COMPILER_V0.8.20",
-                          timestamp: "2026-05-19T14:00:00Z",
-                          networkChainId: "taskra-mainnet-l2"
-                        }, null, 4)}
-                      </pre>
-                    ) : (
-                      <pre className="text-zinc-500">Select a row on the left to inspect block metadata.</pre>
-                    )}
-                  </div>
-                </aside>
+                </div>
               </div>
             )}
           </div>
 
           {/* Bottom Footer Overviews */}
           <footer className="h-14 bg-surface-container dark:bg-zinc-900 border-t border-outline-variant dark:border-zinc-800 flex items-center px-lg justify-between transition-colors shrink-0">
-            <div className="flex-1 flex divide-x divide-outline-variant dark:divide-zinc-800 overflow-x-auto select-none">
+            <div className="flex-1 flex divide-x divide-outline-variant dark:divide-zinc-800 overflow-x-auto select-none font-sans">
               
               <div className="px-xl first:pl-0 flex flex-col justify-center shrink-0">
                 <p className="text-[9px] text-outline dark:text-zinc-500 font-bold uppercase tracking-widest mb-1">Total Rewards</p>
@@ -1502,7 +2291,7 @@ export default function Home() {
               <div className="space-y-xs">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Agent Name</label>
-                  <button type="button" onClick={triggerGenerateName} className="text-[10px] text-secondary dark:text-cyan-400 hover:underline">Generate Name</button>
+                  <button type="button" onClick={triggerGenerateName} className="text-[10px] text-secondary dark:text-cyan-400 hover:underline">🎲 Generate Name</button>
                 </div>
                 <input
                   required
@@ -1582,7 +2371,7 @@ export default function Home() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Node Public Key</span>
                 <div className="flex gap-md bg-surface-container-lowest dark:bg-zinc-950 p-md border border-outline-variant dark:border-zinc-800 rounded-lg">
                   <span className="font-data-mono text-xs dark:text-zinc-200 select-all truncate flex-1">{wallet.fullAddress}</span>
-                  <button onClick={() => { navigator.clipboard.writeText(wallet.fullAddress); alert("Address copied!"); }} className="material-symbols-outlined text-[18px] text-outline hover:text-primary dark:hover:text-white">content_copy</button>
+                  <button onClick={() => { navigator.clipboard.writeText(wallet.fullAddress); showToast("Address copied to clipboard!", "success"); }} className="material-symbols-outlined text-[18px] text-outline hover:text-primary dark:hover:text-white">content_copy</button>
                 </div>
               </div>
 
@@ -1665,7 +2454,7 @@ export default function Home() {
               <div className="space-y-xs">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-outline dark:text-zinc-500">Compilation Specifications</span>
                 <pre className="font-data-mono text-[10.5px] text-on-surface dark:text-zinc-300 bg-surface-container-low dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 p-md rounded-lg overflow-x-auto leading-relaxed">
-                  {activeSpecsTask.specs}
+                  {activeSpecsTask.specs || 'No technical specifications verified.'}
                 </pre>
               </div>
 
@@ -1747,7 +2536,7 @@ export default function Home() {
                 <div className="flex justify-between text-xs">
                   <span className="text-on-surface-variant dark:text-zinc-400">Aggregated Earnings</span>
                   <span className="font-data-mono text-secondary dark:text-cyan-400 font-medium">
-                    {activeConfigAgent.earningsETH.toFixed(2)} ETH + ${activeConfigAgent.earningsUSDC}
+                    {Number(activeConfigAgent.earningsETH || 0).toFixed(2)} ETH + ${activeConfigAgent.earningsUSDC}
                   </span>
                 </div>
               </div>
@@ -1784,6 +2573,48 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* Toast notifications portal */}
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 max-w-[360px] w-full pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`p-3 rounded-lg shadow-lg border text-xs font-semibold flex items-center gap-3 pointer-events-auto backdrop-blur-md transition-all duration-300 ${
+              t.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : t.type === 'error'
+                ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'
+            }`}
+            style={{
+              animation: 'toast-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+            }}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {t.type === 'success' ? 'check_circle' : t.type === 'error' ? 'error' : 'info'}
+            </span>
+            <span className="flex-1 leading-normal">{t.message}</span>
+            <button
+              onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))}
+              className="material-symbols-outlined text-[16px] opacity-70 hover:opacity-100 transition-opacity"
+            >
+              close
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes toast-slide-in {
+          from {
+            transform: translateY(12px) scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   );
 }

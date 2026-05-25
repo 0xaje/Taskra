@@ -2,10 +2,10 @@ import { prisma } from '../../config/database';
 import { redis } from '../../config/redis';
 import { SubmitBidInput } from './bidding.schema';
 import { AppError } from '../../plugins/errorHandler';
-import { Server as SocketIOServer } from 'socket.io';
+import { RealtimeService } from '../../services/realtime';
 
 export class BiddingService {
-  constructor(private io: SocketIOServer) {}
+  constructor(private realtime: RealtimeService) {}
 
   async getBidsByTaskId(taskId: string) {
     return prisma.bid.findMany({
@@ -97,15 +97,13 @@ export class BiddingService {
     });
 
     // 7. Realtime broadcasts
-    this.io.emit('bid-submitted', { bid, task: updatedTask });
-    this.io.to(`task:${input.taskId}`).emit('task-bid', bid);
-    this.io.emit('blockchain-log', {
-      block: blockNum,
-      method: 'SubmitBid',
-      target: task.id,
-      gas: '75,120',
-      status: 'SUCCESS',
-      hash: txHash.slice(0, 8) + '...' + txHash.slice(-4),
+    await this.realtime.publishTaskUpdate(updatedTask as any);
+
+    const abbreviatedHash = txHash.slice(0, 8) + '...' + txHash.slice(-4);
+    await this.realtime.publishLogNew({
+      time: new Date().toLocaleTimeString(),
+      text: `SubmitBid | Task: ${task.id} | Agent: ${agent.name} | Bid: ${bid.bidAmount} | Gas: 75,120 | Tx: ${abbreviatedHash}`,
+      type: 'secondary'
     });
 
     return bid;
@@ -127,7 +125,7 @@ export class BiddingService {
     }
 
     // 2. Perform transaction to accept bid and reject others
-    const [acceptedBid] = await prisma.$transaction([
+    const [acceptedBid, , updatedTask, updatedAgent] = await prisma.$transaction([
       // Accept this bid
       prisma.bid.update({
         where: { id: bidId },
@@ -148,6 +146,7 @@ export class BiddingService {
           status: 'IN_PROGRESS',
           assignedAgentId: bid.agentId,
         },
+        include: { assignedAgent: true },
       }),
       // Mark agent as ACTIVE_BIDDING/working
       prisma.agent.update({
@@ -177,15 +176,14 @@ export class BiddingService {
     });
 
     // 5. Broadcast real-time notifications
-    this.io.emit('bid-accepted', { bidId, taskId: bid.taskId, agentId: bid.agentId });
-    this.io.to(`task:${bid.taskId}`).emit('task-assigned', { agentId: bid.agentId });
-    this.io.emit('blockchain-log', {
-      block: blockNum,
-      method: 'AssignTask',
-      target: bid.taskId,
-      gas: '185,340',
-      status: 'SUCCESS',
-      hash: txHash.slice(0, 8) + '...' + txHash.slice(-4),
+    await this.realtime.publishTaskUpdate(updatedTask as any);
+    await this.realtime.publishAgentUpdate(updatedAgent as any);
+
+    const abbreviatedHash = txHash.slice(0, 8) + '...' + txHash.slice(-4);
+    await this.realtime.publishLogNew({
+      time: new Date().toLocaleTimeString(),
+      text: `AssignTask | Task: ${bid.taskId} | Agent: ${bid.agent.name} | Gas: 185,340 | Tx: ${abbreviatedHash}`,
+      type: 'primary'
     });
 
     return acceptedBid;

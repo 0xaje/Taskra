@@ -1,14 +1,16 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { TaskraEscrow } from "../typechain-types";
 
 describe("TaskraEscrow", function () {
-  let taskraEscrow: any;
-  let owner: any;
-  let depositor: any;
-  let agent: any;
-  let arbitrator: any;
-  let treasury: any;
-  let otherAccount: any;
+  let taskraEscrow: TaskraEscrow;
+  let owner: HardhatEthersSigner;
+  let depositor: HardhatEthersSigner;
+  let agent: HardhatEthersSigner;
+  let arbitrator: HardhatEthersSigner;
+  let treasury: HardhatEthersSigner;
+  let otherAccount: HardhatEthersSigner;
 
   const taskId = ethers.keccak256(ethers.toUtf8Bytes("task-123"));
   const escrowAmount = ethers.parseEther("2.0"); // 2.0 native tokens
@@ -364,6 +366,58 @@ describe("TaskraEscrow", function () {
       await expect(
         taskraEscrow.connect(owner).setTreasury(zeroAddress)
       ).to.be.revertedWithCustomError(taskraEscrow, "InvalidAddress");
+    });
+  });
+
+  describe("Emergency Pausing", function () {
+    it("Should allow the owner to pause and unpause the contract", async function () {
+      // Pause
+      await expect(taskraEscrow.connect(owner).pause())
+        .to.emit(taskraEscrow, "Paused")
+        .withArgs(owner.address);
+      expect(await taskraEscrow.paused()).to.equal(true);
+
+      // Unpause
+      await expect(taskraEscrow.connect(owner).unpause())
+        .to.emit(taskraEscrow, "Unpaused")
+        .withArgs(owner.address);
+      expect(await taskraEscrow.paused()).to.equal(false);
+    });
+
+    it("Should revert if a non-owner attempts to pause or unpause", async function () {
+      await expect(taskraEscrow.connect(depositor).pause())
+        .to.be.revertedWithCustomError(taskraEscrow, "OwnableUnauthorizedAccount");
+
+      await expect(taskraEscrow.connect(depositor).unpause())
+        .to.be.revertedWithCustomError(taskraEscrow, "OwnableUnauthorizedAccount");
+    });
+
+    describe("Paused State Constraints", function () {
+      beforeEach(async function () {
+        await taskraEscrow.connect(owner).pause();
+      });
+
+      it("Should revert createEscrow when paused", async function () {
+        await expect(
+          taskraEscrow.connect(depositor).createEscrow(taskId, agent.address, {
+            value: escrowAmount,
+          })
+        ).to.be.revertedWithCustomError(taskraEscrow, "EnforcedPause");
+      });
+
+      it("Should revert releasePayment, slashAgent, and refundEscrow when paused", async function () {
+        await expect(
+          taskraEscrow.connect(depositor).releasePayment(taskId)
+        ).to.be.revertedWithCustomError(taskraEscrow, "EnforcedPause");
+
+        await expect(
+          taskraEscrow.connect(arbitrator).slashAgent(taskId, escrowAmount, depositor.address)
+        ).to.be.revertedWithCustomError(taskraEscrow, "EnforcedPause");
+
+        await expect(
+          taskraEscrow.connect(depositor).refundEscrow(taskId)
+        ).to.be.revertedWithCustomError(taskraEscrow, "EnforcedPause");
+      });
     });
   });
 });

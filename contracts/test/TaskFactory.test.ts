@@ -7,6 +7,8 @@ describe("TaskFactory", function () {
   let creator: any;
   let agent: any;
   let otherAccount: any;
+  let agentRegistry: any;
+  let reputationRegistry: any;
 
   const metadataURI = "ipfs://QmXoypizjW3WknFixtdKLBU6g72k2vQsPBXGLWZ5uQH6Hk";
   const rewardAmount = ethers.parseEther("1.5"); // 1.5 Somnia native tokens
@@ -26,10 +28,31 @@ describe("TaskFactory", function () {
     // Get signers
     [owner, creator, agent, otherAccount] = await ethers.getSigners();
 
+    // Deploy AgentRegistry
+    const AgentRegistryFactory = await ethers.getContractFactory("AgentRegistry");
+    agentRegistry = await AgentRegistryFactory.deploy(owner.address);
+    await agentRegistry.waitForDeployment();
+
+    // Deploy ReputationRegistry
+    const ReputationRegistryFactory = await ethers.getContractFactory("ReputationRegistry");
+    reputationRegistry = await ReputationRegistryFactory.deploy(owner.address);
+    await reputationRegistry.waitForDeployment();
+
     // Deploy TaskFactory
     const TaskFactoryFactory = await ethers.getContractFactory("TaskFactory");
-    taskFactory = await TaskFactoryFactory.deploy(owner.address);
+    taskFactory = await TaskFactoryFactory.deploy(
+      owner.address,
+      await agentRegistry.getAddress(),
+      await reputationRegistry.getAddress()
+    );
     await taskFactory.waitForDeployment();
+
+    // Authorize TaskFactory in registries
+    await reputationRegistry.connect(owner).setValidator(await taskFactory.getAddress(), true);
+    await agentRegistry.connect(owner).setController(await taskFactory.getAddress(), true);
+
+    // Initialize agent in reputation registry
+    await reputationRegistry.connect(owner).initializeAgent(agent.address);
   });
 
   describe("Deployment", function () {
@@ -43,7 +66,13 @@ describe("TaskFactory", function () {
 
     it("Should revert if deploying with zero address owner", async function () {
       const TaskFactoryFactory = await ethers.getContractFactory("TaskFactory");
-      await expect(TaskFactoryFactory.deploy(zeroAddress)).to.be.revertedWithCustomError(
+      await expect(
+        TaskFactoryFactory.deploy(
+          zeroAddress,
+          await agentRegistry.getAddress(),
+          await reputationRegistry.getAddress()
+        )
+      ).to.be.revertedWithCustomError(
         taskFactory,
         "OwnableInvalidOwner"
       );
@@ -255,6 +284,10 @@ describe("TaskFactory", function () {
     it("Should allow creator to settle task and transfer payout to the agent", async function () {
       const agentInitialBalance = await ethers.provider.getBalance(agent.address);
       const contractInitialBalance = await ethers.provider.getBalance(await taskFactory.getAddress());
+
+      // Advance blockchain time past the dispute period deadline (1 hour)
+      await ethers.provider.send("evm_increaseTime", [3600]);
+      await ethers.provider.send("evm_mine", []);
 
       const tx = await taskFactory.connect(creator).settleTask(taskId);
       const receipt = await tx.wait();

@@ -3,10 +3,10 @@ import { redis } from '../../config/redis';
 import { CreateTaskInput } from './tasks.schema';
 import { AppError } from '../../plugins/errorHandler';
 import { taskQueue } from '../../config/bullmq';
-import { Server as SocketIOServer } from 'socket.io';
+import { RealtimeService } from '../../services/realtime';
 
 export class TasksService {
-  constructor(private io: SocketIOServer) {}
+  constructor(private realtime: RealtimeService) {}
 
   private getCacheKey(id: string): string {
     return `task:${id}`;
@@ -74,14 +74,13 @@ export class TasksService {
     });
 
     // 3. Broadcast real-time events to all dashboards
-    this.io.emit('task-created', task);
-    this.io.emit('blockchain-log', {
-      block: blockNum,
-      method: 'CreateTask',
-      target: task.id,
-      gas: '342,000',
-      status: 'SUCCESS',
-      hash: txHash.slice(0, 8) + '...' + txHash.slice(-4),
+    await this.realtime.publishTaskNew(task as any);
+
+    const abbreviatedHash = txHash.slice(0, 8) + '...' + txHash.slice(-4);
+    await this.realtime.publishLogNew({
+      time: new Date().toLocaleTimeString(),
+      text: `CreateTask | Task: ${task.id} | Gas: 342,000 | Tx: ${abbreviatedHash}`,
+      type: 'white'
     });
 
     // 4. Trigger automated background bidding job in BullMQ
@@ -91,6 +90,11 @@ export class TasksService {
     });
 
     return task;
+  }
+
+  async getTaskLineage(taskId: string) {
+    const { TaskEvolutionEngine } = require('../../services/taskEvolutionEngine');
+    return TaskEvolutionEngine.getTaskLineage(taskId);
   }
 }
 export default TasksService;

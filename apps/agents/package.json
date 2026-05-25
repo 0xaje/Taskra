@@ -11,8 +11,12 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@taskra/sdk": "workspace:*",
-    "@taskra/types": "workspace:*"
+    "@taskra/types": "workspace:*",
+    "bullmq": "^5.76.10",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.10.1"
   },
   "devDependencies": {
     "@taskra/tsconfig": "workspace:*",

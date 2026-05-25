@@ -2,10 +2,10 @@ import { prisma } from '../../config/database';
 import { redis } from '../../config/redis';
 import { CreateAgentInput, UpdateAgentStatusInput } from './agents.schema';
 import { AppError } from '../../plugins/errorHandler';
-import { Server as SocketIOServer } from 'socket.io';
+import { RealtimeService } from '../../services/realtime';
 
 export class AgentsService {
-  constructor(private io: SocketIOServer) {}
+  constructor(private realtime: RealtimeService) {}
 
   private getCacheKey(id: string): string {
     return `agent:${id}`;
@@ -78,14 +78,13 @@ export class AgentsService {
     });
 
     // 4. Broadcast real-time events
-    this.io.emit('agent-registered', agent);
-    this.io.emit('blockchain-log', {
-      block: blockNum,
-      method: 'DeployAgent',
-      target: agent.name,
-      gas: '1,245,190',
-      status: 'SUCCESS',
-      hash: txHash.slice(0, 8) + '...' + txHash.slice(-4),
+    await this.realtime.publishAgentUpdate(agent as any);
+
+    const abbreviatedHash = txHash.slice(0, 8) + '...' + txHash.slice(-4);
+    await this.realtime.publishLogNew({
+      time: new Date().toLocaleTimeString(),
+      text: `DeployAgent | Agent: ${agent.name} | Gas: 1,245,190 | Tx: ${abbreviatedHash}`,
+      type: 'white'
     });
 
     return agent;
@@ -109,9 +108,71 @@ export class AgentsService {
     await redis.del(this.getCacheKey(id));
 
     // Broadcast update
-    this.io.emit('agent-updated', updated);
+    await this.realtime.publishAgentUpdate(updated as any);
+
+    return updated;
+  }
+
+  async getAgentMemories(agentId: string) {
+    const { MemoryStore } = require('../../services/memoryEngine');
+    return MemoryStore.getAllMemories(agentId);
+  }
+
+  async getStrategyDrift(agentId: string) {
+    const { MemoryStore } = require('../../services/memoryEngine');
+    return MemoryStore.getStrategyDrift(agentId, 25);
+  }
+
+  async strategyOverride(
+    id: string,
+    params: { riskAppetite: number; memoryWeight: number; collateralStaking: number }
+  ) {
+    const agent = await prisma.agent.findUnique({
+      where: { id },
+    });
+
+    if (!agent) {
+      throw new AppError(404, `Agent not found with ID ${id}`, 'AGENT_NOT_FOUND');
+    }
+
+    // Determine strategy type based on riskAppetite
+    let strategy = 'Balanced';
+    if (params.riskAppetite < 35) strategy = 'Conservative';
+    else if (params.riskAppetite > 75) strategy = 'Aggressive';
+
+    // Update agent strategy in DB
+    const updated = await prisma.agent.update({
+      where: { id },
+      data: { strategy },
+    });
+
+    // Invalidate Cache
+    await redis.del(this.getCacheKey(id));
+
+    // Record Strategy Drift to Postgres & WebSocket live feeds!
+    const { MemoryStore } = require('../../services/memoryEngine');
+    await MemoryStore.recordStrategyDrift(
+      id,
+      agent.name,
+      {
+        consecutiveSuccesses: 0,
+        consecutiveSlashes: 0,
+        confidenceAdjustment: parseFloat(((params.riskAppetite - 50) / 100).toFixed(2)),
+        strategyModifier: parseFloat(((params.collateralStaking - 50) / 200).toFixed(2)),
+        rollingProfitabilityScore: parseFloat((params.memoryWeight / 50).toFixed(2)),
+      },
+      strategy,
+      Number(agent.rep),
+      agent.winRate,
+      `Manual Strategy Override: riskAppetite=${params.riskAppetite}%, memoryWeight=${params.memoryWeight}%, collateralStaking=${params.collateralStaking}%`,
+      this.realtime
+    );
+
+    // Broadcast update
+    await this.realtime.publishAgentUpdate(updated as any);
 
     return updated;
   }
 }
 export default AgentsService;
+

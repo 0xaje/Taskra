@@ -3,15 +3,16 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./ITaskraEscrow.sol";
 
 /**
  * @title TaskraEscrow
  * @notice Production-grade Escrow smart contract for locking rewards, releasing payments,
  * partial slashing of malicious agents, and resolving disputable task outcomes on Somnia EVM.
- * @dev Inherits OpenZeppelin's Ownable and ReentrancyGuard for robust access controls and reentrancy mitigation.
+ * @dev Inherits OpenZeppelin's Ownable, ReentrancyGuard, and Pausable for robust access controls, reentrancy mitigation, and emergency pausing.
  */
-contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
+contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard, Pausable {
 
     // --- State Variables ---
 
@@ -113,7 +114,7 @@ contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
     function createEscrow(
         bytes32 taskId,
         address payable agent
-    ) external payable override nonReentrant {
+    ) external payable override nonReentrant whenNotPaused {
         if (msg.value == 0) {
             revert InvalidAmount();
         }
@@ -149,7 +150,7 @@ contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
      */
     function releasePayment(
         bytes32 taskId
-    ) external override escrowExists(taskId) escrowActive(taskId) onlyDepositorOrArbitrator(taskId) nonReentrant {
+    ) external override whenNotPaused escrowExists(taskId) escrowActive(taskId) onlyDepositorOrArbitrator(taskId) nonReentrant {
         Escrow storage escrow = _escrows[taskId];
         uint256 payout = escrow.amount;
         address payable agent = escrow.agent;
@@ -181,7 +182,7 @@ contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
         bytes32 taskId,
         uint256 slashAmount,
         address payable refundRecipient
-    ) external override escrowExists(taskId) escrowActive(taskId) onlyArbitrator nonReentrant {
+    ) external override whenNotPaused escrowExists(taskId) escrowActive(taskId) onlyArbitrator nonReentrant {
         if (refundRecipient == address(0)) {
             revert InvalidAddress();
         }
@@ -230,7 +231,7 @@ contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
      */
     function refundEscrow(
         bytes32 taskId
-    ) external override escrowExists(taskId) escrowActive(taskId) onlyDepositorOrArbitrator(taskId) nonReentrant {
+    ) external override whenNotPaused escrowExists(taskId) escrowActive(taskId) onlyDepositorOrArbitrator(taskId) nonReentrant {
         Escrow storage escrow = _escrows[taskId];
         uint256 refundAmount = escrow.amount;
         address payable depositor = escrow.depositor;
@@ -249,6 +250,20 @@ contract TaskraEscrow is ITaskraEscrow, Ownable, ReentrancyGuard {
     }
 
     // --- Administrative Functions ---
+
+    /**
+     * @notice Pauses the contract in case of an emergency, preventing state-modifying actions.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpauses the contract, resuming normal operations.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     /**
      * @notice Configures the designated arbitrator for contract dispute resolutions.

@@ -2,8 +2,9 @@ import { ethers } from 'ethers';
 import { prisma } from '../config/database';
 import { redis } from '../config/redis';
 import { env } from '../config/env';
-import { Server as SocketIOServer } from 'socket.io';
+import { RealtimeService } from './realtime';
 import { Prisma } from '@prisma/client';
+import { Settlement, SystemEventLog } from '@taskra/types';
 
 // ABI for the TaskFactory contract events
 const TASK_FACTORY_ABI = [
@@ -11,8 +12,13 @@ const TASK_FACTORY_ABI = [
   'event TaskAssigned(bytes32 indexed id, address indexed assignedAgent, uint256 timestamp)',
   'event TaskStarted(bytes32 indexed id, uint256 timestamp)',
   'event TaskCompleted(bytes32 indexed id, uint256 timestamp)',
+  'event TaskCompletedWithProof(bytes32 indexed id, address indexed assignedAgent, bytes32 proofHash, uint256 timestamp)',
   'event TaskSettled(bytes32 indexed id, address indexed assignedAgent, uint256 rewardAmount, uint256 timestamp)',
-  'event TaskCancelled(bytes32 indexed id, address indexed creator, uint256 refundedAmount, uint256 timestamp)'
+  'event TaskCancelled(bytes32 indexed id, address indexed creator, uint256 refundedAmount, uint256 timestamp)',
+  'event ValidatorVoted(bytes32 indexed id, address indexed validator, bool isValid, uint256 timestamp)',
+  'event TaskDisputed(bytes32 indexed id, address indexed raisedBy, string reason, uint256 timestamp)',
+  'event TaskSlashed(bytes32 indexed id, address indexed assignedAgent, uint256 slashedAmount, uint256 timestamp)',
+  'event EscrowArbitrated(bytes32 indexed id, address indexed arbiter, bool paidAgent, uint256 timestamp)'
 ];
 
 export class BlockchainListenerService {
@@ -23,8 +29,10 @@ export class BlockchainListenerService {
   private reconnectDelay = 5000; // Start with 5s delay
   private maxReconnectDelay = 60000; // Cap at 60s
   private lastProcessedBlockKey = 'taskra:blockchain:last_processed_block';
+  private isMockListenerRunning = false;
+  private mockIntervalId: NodeJS.Timeout | null = null;
 
-  constructor(private io: SocketIOServer) {}
+  constructor(private realtime: RealtimeService) {}
 
   /**
    * Initializes and starts the blockchain event listener daemon.
@@ -46,6 +54,11 @@ export class BlockchainListenerService {
     this.isRunning = false;
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
+    }
+    if (this.mockIntervalId) {
+      clearInterval(this.mockIntervalId);
+      this.mockIntervalId = null;
+      this.isMockListenerRunning = false;
     }
     if (this.provider) {
       try {
@@ -69,26 +82,88 @@ export class BlockchainListenerService {
         clearTimeout(this.reconnectTimeout);
       }
 
+      const contractAddress = env.TASK_FACTORY_ADDRESS;
+      const isSandboxMode = !contractAddress || contractAddress === ethers.ZeroAddress;
+
+      if (isSandboxMode) {
+        console.warn('TASK_FACTORY_ADDRESS is set to ZeroAddress or not defined. Listener will run in diagnostic sandbox mode.');
+        this.provider = null;
+        this.contract = null;
+        this.startDiagnosticMockListener();
+        return;
+      }
+
       console.log(`Connecting to Somnia Network. WS: ${env.SOMNIA_WS_URL} | HTTP: ${env.SOMNIA_RPC_URL}`);
+
+      // Pre-flight reachability check to prevent unhandled event loop connection refuse crashes
+      let isRpcOnline = false;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const pingResponse = await fetch(env.SOMNIA_RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'net_listening', params: [], id: 1 }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (pingResponse.ok) {
+          isRpcOnline = true;
+        }
+      } catch (pingError: any) {
+        isRpcOnline = false;
+      }
+
+      if (!isRpcOnline) {
+        console.warn('Somnia local RPC node is currently offline. Skipping connection and running in diagnostic sandbox mode.');
+        this.provider = null;
+        this.contract = null;
+        this.startDiagnosticMockListener();
+        this.handleDisconnect();
+        return;
+      }
+
+      let connected = false;
 
       // 1. Attempt WebSocket connection
       try {
-        this.provider = new ethers.WebSocketProvider(env.SOMNIA_WS_URL);
+        // Create WS provider - wrap with error events immediately to prevent process crashes on DNS failures
+        const wsProvider = new ethers.WebSocketProvider(env.SOMNIA_WS_URL);
+        
+        // Register early error handler on websocket provider
+        wsProvider.on('error', (err) => {
+          console.error('WebSocket connection or DNS resolution failed asynchronously:', err);
+        });
+
         // Force test connection
-        await this.provider.getBlockNumber();
+        await wsProvider.getBlockNumber();
+        this.provider = wsProvider;
         console.log('Successfully connected to Somnia via WebSocket!');
         this.reconnectDelay = 5000; // Reset delay on success
+        connected = true;
       } catch (wsError: any) {
         console.warn(`WebSocket connection failed: ${wsError.message}. Falling back to HTTP JsonRpcProvider.`);
-        // Fallback to JSON-RPC HTTP provider
-        this.provider = new ethers.JsonRpcProvider(env.SOMNIA_RPC_URL);
-        await this.provider.getBlockNumber();
-        console.log('Connected to Somnia via HTTP Polling.');
+        try {
+          // Fallback to JSON-RPC HTTP provider
+          const rpcProvider = new ethers.JsonRpcProvider(env.SOMNIA_RPC_URL);
+          await rpcProvider.getBlockNumber();
+          this.provider = rpcProvider;
+          console.log('Connected to Somnia via HTTP Polling.');
+          connected = true;
+        } catch (rpcError: any) {
+          console.error(`HTTP JsonRpcProvider fallback also failed: ${rpcError.message}`);
+        }
       }
 
-      // 2. Setup Contract instance
-      const contractAddress = env.TASK_FACTORY_ADDRESS;
-      if (contractAddress && contractAddress !== ethers.ZeroAddress) {
+      if (connected && this.provider) {
+        // If there was a mock interval running, clear it since we are online now
+        if (this.mockIntervalId) {
+          clearInterval(this.mockIntervalId);
+          this.mockIntervalId = null;
+          this.isMockListenerRunning = false;
+        }
+
+        // 2. Setup Contract instance
         this.contract = new ethers.Contract(contractAddress, TASK_FACTORY_ABI, this.provider);
         
         // Register real-time listeners
@@ -96,21 +171,27 @@ export class BlockchainListenerService {
         
         // Catch up on missed events during offline downtime
         await this.catchUpMissedEvents();
-      } else {
-        console.warn('TASK_FACTORY_ADDRESS is set to ZeroAddress. Listener will run in diagnostic sandbox mode.');
-        this.startDiagnosticMockListener();
-      }
 
-      // 3. Setup WebSocket connection death/error hooks
-      if (this.provider instanceof ethers.WebSocketProvider) {
-        this.provider.on('error', (err) => {
-          console.error('Websocket Provider Error:', err);
-          this.handleDisconnect();
-        });
+        // 3. Setup WebSocket connection death/error hooks
+        if (this.provider instanceof ethers.WebSocketProvider) {
+          this.provider.on('error', (err) => {
+            console.error('Websocket Provider Error:', err);
+            this.handleDisconnect();
+          });
+        }
+      } else {
+        console.warn('Unable to connect to Somnia network. Listener will run in offline diagnostic sandbox mode.');
+        this.provider = null;
+        this.contract = null;
+        this.startDiagnosticMockListener();
+        this.handleDisconnect();
       }
 
     } catch (err: any) {
-      console.error(`Failed to connect to Somnia RPC: ${err.message}. Retrying...`);
+      console.error(`Unexpected failure connecting to Somnia RPC: ${err.message}. Retrying...`);
+      this.provider = null;
+      this.contract = null;
+      this.startDiagnosticMockListener();
       this.handleDisconnect();
     }
   }
@@ -174,6 +255,36 @@ export class BlockchainListenerService {
     this.contract.on('TaskCancelled', async (id, creator, refundedAmount, timestamp, eventPayload) => {
       await this.safeExecuteEvent('TaskCancelled', eventPayload, async () => {
         await this.handleTaskCancelled(id, creator, refundedAmount, timestamp, eventPayload);
+      });
+    });
+
+    this.contract.on('TaskCompletedWithProof', async (id, assignedAgent, proofHash, timestamp, eventPayload) => {
+      await this.safeExecuteEvent('TaskCompletedWithProof', eventPayload, async () => {
+        await this.handleTaskCompletedWithProof(id, assignedAgent, proofHash, timestamp, eventPayload);
+      });
+    });
+
+    this.contract.on('ValidatorVoted', async (id, validator, isValid, timestamp, eventPayload) => {
+      await this.safeExecuteEvent('ValidatorVoted', eventPayload, async () => {
+        await this.handleValidatorVoted(id, validator, isValid, timestamp, eventPayload);
+      });
+    });
+
+    this.contract.on('TaskDisputed', async (id, raisedBy, reason, timestamp, eventPayload) => {
+      await this.safeExecuteEvent('TaskDisputed', eventPayload, async () => {
+        await this.handleTaskDisputed(id, raisedBy, reason, timestamp, eventPayload);
+      });
+    });
+
+    this.contract.on('TaskSlashed', async (id, assignedAgent, slashedAmount, timestamp, eventPayload) => {
+      await this.safeExecuteEvent('TaskSlashed', eventPayload, async () => {
+        await this.handleTaskSlashed(id, assignedAgent, slashedAmount, timestamp, eventPayload);
+      });
+    });
+
+    this.contract.on('EscrowArbitrated', async (id, arbiter, paidAgent, timestamp, eventPayload) => {
+      await this.safeExecuteEvent('EscrowArbitrated', eventPayload, async () => {
+        await this.handleEscrowArbitrated(id, arbiter, paidAgent, timestamp, eventPayload);
       });
     });
   }
@@ -409,8 +520,8 @@ export class BlockchainListenerService {
     await this.logBlockchainTx(txHash, blockNumber, 'CreateTask', taskId, '210000');
 
     // 2. Real-time Broadcasting (Socket.io)
-    this.io.emit('task-created', task);
-    this.broadcastBlockchainLog(blockNumber, 'CreateTask', taskId, '210,000', txHash);
+    await this.realtime.publishTaskNew(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'CreateTask', taskId, '210,000', txHash);
   }
 
   /**
@@ -452,8 +563,8 @@ export class BlockchainListenerService {
     await this.logBlockchainTx(txHash, blockNumber, 'AssignTask', taskId, '85000');
 
     // 2. Real-time Broadcasting
-    this.io.emit('task-updated', task);
-    this.broadcastBlockchainLog(blockNumber, 'AssignTask', taskId, '85,000', txHash);
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'AssignTask', taskId, '85,000', txHash);
   }
 
   /**
@@ -478,8 +589,8 @@ export class BlockchainListenerService {
 
     await this.logBlockchainTx(txHash, blockNumber, 'StartTask', taskId, '45000');
 
-    this.io.emit('task-updated', task);
-    this.broadcastBlockchainLog(blockNumber, 'StartTask', taskId, '45,000', txHash);
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'StartTask', taskId, '45,000', txHash);
   }
 
   /**
@@ -504,8 +615,8 @@ export class BlockchainListenerService {
 
     await this.logBlockchainTx(txHash, blockNumber, 'CompleteTask', taskId, '60000');
 
-    this.io.emit('task-updated', task);
-    this.broadcastBlockchainLog(blockNumber, 'CompleteTask', taskId, '60,000', txHash);
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'CompleteTask', taskId, '60,000', txHash);
   }
 
   /**
@@ -538,13 +649,14 @@ export class BlockchainListenerService {
       where: { address: { equals: agentAddress, mode: 'insensitive' } }
     });
 
+    let updatedAgent: any = null;
     if (agent) {
       const currentEarnings = Number(agent.earningsETH);
       const newEarnings = currentEarnings + formattedReward;
       const currentCompleted = agent.jobsCompleted;
 
       // Update agent stats
-      await prisma.agent.update({
+      updatedAgent = await prisma.agent.update({
         where: { id: agent.id },
         data: {
           earningsETH: new Prisma.Decimal(newEarnings),
@@ -558,9 +670,23 @@ export class BlockchainListenerService {
     await this.logBlockchainTx(txHash, blockNumber, 'SettleReward', agent?.name || taskId, '142000');
 
     // 3. Real-time Broadcasting
-    this.io.emit('task-updated', task);
-    this.io.emit('agent-updated', { address: agentAddress });
-    this.broadcastBlockchainLog(blockNumber, 'SettleReward', agent?.name || taskId, '142,000', txHash);
+    await this.realtime.publishTaskUpdate(task as any);
+    if (updatedAgent) {
+      await this.realtime.publishAgentUpdate(updatedAgent as any);
+    }
+
+    const settlement: Settlement = {
+      taskId,
+      agentId: agent?.id || 'unknown',
+      amount: formattedReward,
+      asset: 'ETH',
+      txHash,
+      timestamp: new Date().toISOString(),
+      status: 'SETTLED'
+    };
+    await this.realtime.publishEconomyUpdateWithLatestStats(settlement);
+
+    await this.broadcastBlockchainLog(blockNumber, 'SettleReward', agent?.name || taskId, '142,000', txHash);
   }
 
   /**
@@ -588,8 +714,145 @@ export class BlockchainListenerService {
 
     await this.logBlockchainTx(txHash, blockNumber, 'CancelTask', taskId, '95000');
 
-    this.io.emit('task-updated', task);
-    this.broadcastBlockchainLog(blockNumber, 'CancelTask', taskId, '95,000', txHash);
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'CancelTask', taskId, '95,000', txHash);
+  }
+
+  private async handleTaskCompletedWithProof(
+    id: string,
+    assignedAgent: string,
+    proofHash: string,
+    _timestamp: bigint,
+    eventPayload: any
+  ) {
+    const taskId = id.toLowerCase();
+    const agentAddress = assignedAgent.toLowerCase();
+    const txHash = eventPayload?.transactionHash || eventPayload?.log?.transactionHash;
+    const blockNumber = Number(eventPayload?.blockNumber || eventPayload?.log?.blockNumber || 0);
+
+    console.log(`[Event: TaskCompletedWithProof] ID: ${taskId} | Agent: ${agentAddress} | Proof: ${proofHash}`);
+
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { status: 'COMPLETED', specs: `Proof Hash: ${proofHash}` },
+      include: { assignedAgent: true }
+    });
+
+    await this.logBlockchainTx(txHash, blockNumber, 'CompleteTaskWithProof', taskId, '72000');
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'CompleteWithProof', taskId, '72,000', txHash);
+  }
+
+  private async handleValidatorVoted(
+    id: string,
+    validator: string,
+    isValid: boolean,
+    _timestamp: bigint,
+    eventPayload: any
+  ) {
+    const taskId = id.toLowerCase();
+    const validatorAddress = validator.toLowerCase();
+    const txHash = eventPayload?.transactionHash || eventPayload?.log?.transactionHash;
+    const blockNumber = Number(eventPayload?.blockNumber || eventPayload?.log?.blockNumber || 0);
+
+    console.log(`[Event: ValidatorVoted] ID: ${taskId} | Validator: ${validatorAddress} | Vote: ${isValid ? 'VALID' : 'INVALID'}`);
+
+    const log: SystemEventLog = {
+      time: new Date().toLocaleTimeString(),
+      text: `Validator ${validatorAddress.slice(0, 8)} voted ${isValid ? 'VALID' : 'INVALID'} on task ${taskId.slice(0, 8)}`,
+      type: 'secondary'
+    };
+    await this.realtime.publishLogNew(log);
+
+    await this.logBlockchainTx(txHash, blockNumber, 'ValidatorVote', taskId, '45000');
+    await this.broadcastBlockchainLog(blockNumber, `Vote:${isValid ? 'VALID' : 'INVALID'}`, taskId, '45,000', txHash);
+  }
+
+  private async handleTaskDisputed(
+    id: string,
+    raisedBy: string,
+    reason: string,
+    _timestamp: bigint,
+    eventPayload: any
+  ) {
+    const taskId = id.toLowerCase();
+    const raisedByAddress = raisedBy.toLowerCase();
+    const txHash = eventPayload?.transactionHash || eventPayload?.log?.transactionHash;
+    const blockNumber = Number(eventPayload?.blockNumber || eventPayload?.log?.blockNumber || 0);
+
+    console.log(`[Event: TaskDisputed] ID: ${taskId} | RaisedBy: ${raisedByAddress} | Reason: ${reason}`);
+
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { status: 'CANCELLED', desc: `Disputed: ${reason}` }, // maps to cancelled/recovery in task life cycle
+      include: { assignedAgent: true }
+    });
+
+    await this.logBlockchainTx(txHash, blockNumber, 'RaiseDispute', taskId, '82000');
+    await this.realtime.publishTaskUpdate(task as any);
+    await this.broadcastBlockchainLog(blockNumber, 'RaiseDispute', taskId, '82,000', txHash);
+  }
+
+  private async handleTaskSlashed(
+    id: string,
+    assignedAgent: string,
+    slashedAmount: bigint,
+    _timestamp: bigint,
+    eventPayload: any
+  ) {
+    const taskId = id.toLowerCase();
+    const agentAddress = assignedAgent.toLowerCase();
+    const formattedSlashed = parseFloat(ethers.formatEther(slashedAmount));
+    const txHash = eventPayload?.transactionHash || eventPayload?.log?.transactionHash;
+    const blockNumber = Number(eventPayload?.blockNumber || eventPayload?.log?.blockNumber || 0);
+
+    console.log(`[Event: TaskSlashed] ID: ${taskId} | Agent: ${agentAddress} | Slashed: ${formattedSlashed} ETH`);
+
+    const agent = await prisma.agent.findFirst({
+      where: { address: { equals: agentAddress, mode: 'insensitive' } }
+    });
+
+    if (agent) {
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agent.id },
+        data: {
+          rep: Math.max(100, agent.rep - 100),
+          earningsETH: { decrement: formattedSlashed },
+          collateralSlashHistory: { increment: formattedSlashed },
+          status: 'COOLDOWN',
+          cooldownTicks: 3
+        }
+      });
+      await this.realtime.publishAgentUpdate(updatedAgent as any);
+    }
+
+    await this.logBlockchainTx(txHash, blockNumber, 'SlashCollateral', agentAddress, '115000');
+    await this.broadcastBlockchainLog(blockNumber, 'SlashCollateral', agentAddress, '115,000', txHash);
+  }
+
+  private async handleEscrowArbitrated(
+    id: string,
+    arbiter: string,
+    paidAgent: boolean,
+    _timestamp: bigint,
+    eventPayload: any
+  ) {
+    const taskId = id.toLowerCase();
+    const arbiterAddress = arbiter.toLowerCase();
+    const txHash = eventPayload?.transactionHash || eventPayload?.log?.transactionHash;
+    const blockNumber = Number(eventPayload?.blockNumber || eventPayload?.log?.blockNumber || 0);
+
+    console.log(`[Event: EscrowArbitrated] ID: ${taskId} | Arbiter: ${arbiterAddress} | PayAgent: ${paidAgent}`);
+
+    const log: SystemEventLog = {
+      time: new Date().toLocaleTimeString(),
+      text: `Escrow for task ${taskId.slice(0, 8)} arbitrated by ${arbiterAddress.slice(0, 8)} -> PayAgent: ${paidAgent}`,
+      type: 'primary'
+    };
+    await this.realtime.publishLogNew(log);
+
+    await this.logBlockchainTx(txHash, blockNumber, 'ArbitrateEscrow', taskId, '138000');
+    await this.broadcastBlockchainLog(blockNumber, 'Arbitrate', taskId, '138,000', txHash);
   }
 
   // =========================================================================
@@ -632,7 +895,7 @@ export class BlockchainListenerService {
   /**
    * Broadcasts a parsed readable transaction log through socket gateways.
    */
-  private broadcastBlockchainLog(
+  private async broadcastBlockchainLog(
     block: number,
     method: string,
     target: string,
@@ -640,14 +903,12 @@ export class BlockchainListenerService {
     hash: string
   ) {
     const abbreviatedHash = hash.slice(0, 8) + '...' + hash.slice(-4);
-    this.io.emit('blockchain-log', {
-      block,
-      method,
-      target,
-      gas,
-      status: 'SUCCESS',
-      hash: abbreviatedHash
-    });
+    const log: SystemEventLog = {
+      time: new Date().toLocaleTimeString(),
+      text: `Block #${block} | ${method} | ${target} | Gas: ${gas} | Tx: ${abbreviatedHash}`,
+      type: method === 'SettleReward' ? 'primary' : method === 'SubmitBid' ? 'secondary' : 'white'
+    };
+    await this.realtime.publishLogNew(log);
   }
 
   /**
@@ -655,10 +916,12 @@ export class BlockchainListenerService {
    * Generates mock events when run without contract address configs.
    */
   private startDiagnosticMockListener() {
+    if (this.isMockListenerRunning) return;
+    this.isMockListenerRunning = true;
     console.log('Diagnostic Mock Blockchain listener thread initiated.');
     
     // Simulate smart contract event ticks in development sandboxes
-    setInterval(async () => {
+    this.mockIntervalId = setInterval(async () => {
       if (!this.isRunning) return;
 
       try {

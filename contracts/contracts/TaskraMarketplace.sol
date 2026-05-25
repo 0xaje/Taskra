@@ -72,7 +72,7 @@ contract TaskraMarketplace {
         // Assert agent is registered in the AgentRegistry
         (,,,,, AgentRegistry.AgentStatus status,, bool registered) = registry.agents(msg.sender);
         require(registered, "Agent must be registered to bid");
-        require(status == AgentRegistry.AgentStatus.Active, "Agent node must be active");
+        require(status == AgentRegistry.AgentStatus.ACTIVE_BIDDING || status == AgentRegistry.AgentStatus.IDLE_SCANNING, "Agent node must be active");
 
         bids[_taskId].push(Bid({
             bidAmount: tasks[_taskId].reward,

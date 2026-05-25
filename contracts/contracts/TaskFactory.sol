@@ -4,12 +4,13 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./ITaskFactory.sol";
+import "./AgentRegistry.sol";
+import "./ReputationRegistry.sol";
 
 /**
  * @title TaskFactory
  * @notice Production-grade implementation of ITaskFactory for Somnia EVM.
- * @dev Manages the creation, assignment, progression, completion, settlement, and cancellation of autonomous tasks.
- * Includes reentrancy protection, access control modifiers, optimized storage, and strict state machine transitions.
+ * @dev Manages the creation, assignment, progression, completion, validator voting consensus, disputes, slashing, and autonomous settlements.
  */
 contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
     
@@ -18,18 +19,39 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
     /// @notice The total number of tasks created through this factory.
     uint256 public taskCount;
 
+    /// @notice Address of the AgentRegistry contract.
+    AgentRegistry public agentRegistry;
+
+    /// @notice Address of the ReputationRegistry contract.
+    ReputationRegistry public reputationRegistry;
+
     /// @dev Internal mapping containing task details keyed by their generated taskId.
     mapping(bytes32 => Task) private _tasks;
 
     /// @dev Internal list of all task IDs for enumeration.
     bytes32[] private _allTaskIds;
 
+    /// @dev Mapping to track validator votes on a specific taskId (taskId => validator => hasVoted).
+    mapping(bytes32 => mapping(address => bool)) public hasVoted;
+
+    /// @dev Votes tracking for tasks (taskId => votesFor).
+    mapping(bytes32 => uint256) public taskVotesFor;
+
+    /// @dev Votes tracking for tasks (taskId => votesAgainst).
+    mapping(bytes32 => uint256) public taskVotesAgainst;
+
+    /// @dev Validators count who voted on taskId
+    mapping(bytes32 => uint256) public totalVotedCount;
+
     // --- Modifiers ---
 
-    /**
-     * @dev Validates that the task exists (has a non-zero creator address).
-     * @param taskId The unique identifier of the task.
-     */
+    modifier onlyValidator() {
+        if (!reputationRegistry.isValidator(msg.sender) && msg.sender != owner()) {
+            revert Unauthorized();
+        }
+        _;
+    }
+
     modifier taskExists(bytes32 taskId) {
         if (_tasks[taskId].creator == address(0)) {
             revert TaskDoesNotExist();
@@ -37,10 +59,6 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Restricts access only to the creator of the specified task.
-     * @param taskId The unique identifier of the task.
-     */
     modifier onlyCreator(bytes32 taskId) {
         if (_tasks[taskId].creator == address(0)) {
             revert TaskDoesNotExist();
@@ -51,10 +69,6 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Restricts access only to the assigned agent of the specified task.
-     * @param taskId The unique identifier of the task.
-     */
     modifier onlyAssignedAgent(bytes32 taskId) {
         if (_tasks[taskId].creator == address(0)) {
             revert TaskDoesNotExist();
@@ -67,36 +81,30 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
 
     // --- Constructor ---
 
-    /**
-     * @notice Initializes the TaskFactory contract.
-     * @param initialOwner The address of the initial administrator/owner of the contract.
-     */
-    constructor(address initialOwner) Ownable(initialOwner) ReentrancyGuard() {
-        if (initialOwner == address(0)) {
+    constructor(
+        address initialOwner,
+        address _agentRegistry,
+        address _reputationRegistry
+    ) Ownable(initialOwner) ReentrancyGuard() {
+        if (initialOwner == address(0) || _agentRegistry == address(0) || _reputationRegistry == address(0)) {
             revert InvalidAddress();
         }
+        agentRegistry = AgentRegistry(_agentRegistry);
+        reputationRegistry = ReputationRegistry(_reputationRegistry);
     }
 
     // --- External Functions ---
 
-    /**
-     * @notice Creates a new autonomous task on Somnia EVM.
-     * @dev The caller must send native currency to fund the task reward. Generates a unique task ID.
-     * @param metadataURI The decentralized storage URI (IPFS/Arweave) containing task specification metadata.
-     * @return taskId The unique 32-byte identifier for the newly created task.
-     */
     function createTask(string calldata metadataURI) external payable override returns (bytes32) {
         if (msg.value == 0) {
             revert RewardAmountRequired();
         }
         if (bytes(metadataURI).length == 0) {
-            revert InvalidAddress(); // Reusing error or standard validation for empty strings
+            revert InvalidAddress();
         }
 
-        // Increment task count to maintain sequential uniqueness
         uint256 currentCount = ++taskCount;
 
-        // Generate a secure and unique task ID
         bytes32 taskId = keccak256(
             abi.encodePacked(
                 msg.sender,
@@ -106,12 +114,10 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
             )
         );
 
-        // Verify task uniqueness (extremely unlikely to collide, but guard is standard)
         if (_tasks[taskId].creator != address(0)) {
             revert TaskAlreadyExists();
         }
 
-        // Construct task struct
         _tasks[taskId] = Task({
             id: taskId,
             creator: msg.sender,
@@ -120,10 +126,11 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
             assignedAgent: address(0),
             status: Status.OPEN,
             createdAt: block.timestamp,
-            completedAt: 0
+            completedAt: 0,
+            proofHash: bytes32(0),
+            disputeDeadline: 0
         });
 
-        // Store ID in historical list
         _allTaskIds.push(taskId);
 
         emit TaskCreated(taskId, msg.sender, metadataURI, msg.value, block.timestamp);
@@ -131,12 +138,6 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
         return taskId;
     }
 
-    /**
-     * @notice Assigns a registered AI agent to an open task.
-     * @dev Only callable by the task creator. The task must be in the OPEN status.
-     * @param taskId The unique identifier of the task.
-     * @param agent The address of the assigned AI agent.
-     */
     function assignTask(bytes32 taskId, address agent) external override onlyCreator(taskId) {
         if (agent == address(0)) {
             revert InvalidAddress();
@@ -153,11 +154,6 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
         emit TaskAssigned(taskId, agent, block.timestamp);
     }
 
-    /**
-     * @notice Marks an assigned task as currently IN_PROGRESS by the agent.
-     * @dev Only callable by the assigned agent. The task must be in the ASSIGNED status.
-     * @param taskId The unique identifier of the task.
-     */
     function markInProgress(bytes32 taskId) external override onlyAssignedAgent(taskId) {
         Task storage task = _tasks[taskId];
         if (task.status != Status.ASSIGNED) {
@@ -169,11 +165,6 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
         emit TaskStarted(taskId, block.timestamp);
     }
 
-    /**
-     * @notice Signals that the assigned agent has successfully completed the task.
-     * @dev Only callable by the assigned agent. The task must be in the IN_PROGRESS status.
-     * @param taskId The unique identifier of the task.
-     */
     function completeTask(bytes32 taskId) external override onlyAssignedAgent(taskId) {
         Task storage task = _tasks[taskId];
         if (task.status != Status.IN_PROGRESS) {
@@ -182,101 +173,198 @@ contract TaskFactory is ITaskFactory, Ownable, ReentrancyGuard {
 
         task.status = Status.COMPLETED;
         task.completedAt = block.timestamp;
+        task.disputeDeadline = block.timestamp + 1 hours; // 1-hour dispute window
 
         emit TaskCompleted(taskId, block.timestamp);
     }
 
-    /**
-     * @notice Settles a completed task, paying out the escrowed reward to the assigned agent.
-     * @dev Only callable by the task creator. The task must be in the COMPLETED status.
-     * Uses nonReentrant modifier to protect against reentrancy vectors during the native asset transfer.
-     * @param taskId The unique identifier of the task.
-     */
+    function completeTaskWithProof(bytes32 taskId, bytes32 proofHash) external override onlyAssignedAgent(taskId) {
+        if (proofHash == bytes32(0)) {
+            revert InvalidAddress();
+        }
+        
+        Task storage task = _tasks[taskId];
+        if (task.status != Status.IN_PROGRESS) {
+            revert TaskNotInProgress();
+        }
+
+        task.status = Status.COMPLETED;
+        task.completedAt = block.timestamp;
+        task.proofHash = proofHash;
+        task.disputeDeadline = block.timestamp + 1 hours; // 1-hour dispute window
+
+        emit TaskCompletedWithProof(taskId, msg.sender, proofHash, block.timestamp);
+    }
+
+    // --- On-chain Validator Voting & Dispute Resolution ---
+
+    function voteValidation(bytes32 taskId, bool isValid) external override onlyValidator taskExists(taskId) nonReentrant {
+        Task storage task = _tasks[taskId];
+        if (task.status != Status.COMPLETED && task.status != Status.DISPUTED) {
+            revert TaskNotCompleted();
+        }
+
+        if (hasVoted[taskId][msg.sender]) {
+            revert DoubleVoting();
+        }
+
+        hasVoted[taskId][msg.sender] = true;
+        totalVotedCount[taskId] += 1;
+
+        if (isValid) {
+            taskVotesFor[taskId] += 1;
+        } else {
+            taskVotesAgainst[taskId] += 1;
+        }
+
+        emit ValidatorVoted(taskId, msg.sender, isValid, block.timestamp);
+
+        // Consensus rule: If at least 2 validator votes are cast, we resolve autonomously
+        if (totalVotedCount[taskId] >= 2) {
+            _resolveConsensus(taskId);
+        }
+    }
+
+    function raiseDispute(bytes32 taskId, string calldata reason) external override taskExists(taskId) {
+        Task storage task = _tasks[taskId];
+        
+        // Either the creator can raise a dispute, or an authorized validator can
+        if (msg.sender != task.creator && !reputationRegistry.isValidator(msg.sender)) {
+            revert Unauthorized();
+        }
+
+        if (task.status != Status.COMPLETED) {
+            revert TaskNotCompleted();
+        }
+
+        if (block.timestamp > task.disputeDeadline) {
+            revert DisputePeriodExpired();
+        }
+
+        task.status = Status.DISPUTED;
+        emit TaskDisputed(taskId, msg.sender, reason, block.timestamp);
+    }
+
+    function arbitrateEscrow(bytes32 taskId, bool payAgent) external override onlyOwner taskExists(taskId) nonReentrant {
+        Task storage task = _tasks[taskId];
+        if (task.status != Status.DISPUTED) {
+            revert Unauthorized(); // Must be in DISPUTED state to arbitrate
+        }
+
+        address agent = task.assignedAgent;
+        uint256 payout = task.rewardAmount;
+
+        if (payAgent) {
+            task.status = Status.SETTLED;
+            (bool success, ) = payable(agent).call{value: payout}("");
+            if (!success) revert EscrowTransferFailed();
+            
+            reputationRegistry.recordTaskSuccess(agent, payout);
+            emit TaskSettled(taskId, agent, payout, block.timestamp);
+        } else {
+            task.status = Status.CANCELLED;
+            (bool success, ) = payable(task.creator).call{value: payout}("");
+            if (!success) revert EscrowTransferFailed();
+
+            // Slash agent collateral if it is registered
+            try agentRegistry.slashAgent(agent, 0.05 ether) {} catch {}
+            reputationRegistry.recordTaskFailure(agent, payout);
+            
+            emit TaskSlashed(taskId, agent, 0.05 ether, block.timestamp);
+            emit TaskCancelled(taskId, task.creator, payout, block.timestamp);
+        }
+
+        emit EscrowArbitrated(taskId, msg.sender, payAgent, block.timestamp);
+    }
+
+    function _resolveConsensus(bytes32 taskId) internal {
+        Task storage task = _tasks[taskId];
+        address agent = task.assignedAgent;
+        uint256 payout = task.rewardAmount;
+
+        uint256 votesFor = taskVotesFor[taskId];
+        uint256 votesAgainst = taskVotesAgainst[taskId];
+
+        if (votesFor > votesAgainst) {
+            // Consensus: Valid
+            task.status = Status.SETTLED;
+            (bool success, ) = payable(agent).call{value: payout}("");
+            if (!success) revert EscrowTransferFailed();
+
+            reputationRegistry.recordTaskSuccess(agent, payout);
+            emit TaskSettled(taskId, agent, payout, block.timestamp);
+        } else {
+            // Consensus: Invalid
+            task.status = Status.CANCELLED;
+            (bool success, ) = payable(task.creator).call{value: payout}("");
+            if (!success) revert EscrowTransferFailed();
+
+            // Slash agent's collateral on registry
+            try agentRegistry.slashAgent(agent, 0.05 ether) {} catch {}
+            reputationRegistry.recordTaskFailure(agent, payout);
+
+            emit TaskSlashed(taskId, agent, 0.05 ether, block.timestamp);
+            emit TaskCancelled(taskId, task.creator, payout, block.timestamp);
+        }
+    }
+
     function settleTask(bytes32 taskId) external override onlyCreator(taskId) nonReentrant {
         Task storage task = _tasks[taskId];
         if (task.status != Status.COMPLETED) {
             revert TaskNotCompleted();
         }
 
+        if (block.timestamp < task.disputeDeadline) {
+            revert DisputePeriodActive();
+        }
+
         address agent = task.assignedAgent;
         uint256 payout = task.rewardAmount;
 
-        // Perform state update BEFORE the external transfer (Checks-Effects-Interactions pattern)
         task.status = Status.SETTLED;
 
-        // Transfer escrowed funds to agent
         (bool success, ) = payable(agent).call{value: payout}("");
-        if (!success) {
-            revert EscrowTransferFailed();
-        }
+        if (!success) revert EscrowTransferFailed();
 
+        reputationRegistry.recordTaskSuccess(agent, payout);
         emit TaskSettled(taskId, agent, payout, block.timestamp);
     }
 
-    /**
-     * @notice Cancels a task and refunds the escrowed reward back to the task creator.
-     * @dev Only callable by the task creator. The task must NOT be active (IN_PROGRESS or COMPLETED).
-     * Cannot cancel tasks that are already SETTLED or CANCELLED since their statuses are not OPEN or ASSIGNED.
-     * Uses nonReentrant modifier to protect against reentrancy vectors during the refund transfer.
-     * @param taskId The unique identifier of the task.
-     */
     function cancelTask(bytes32 taskId) external override onlyCreator(taskId) nonReentrant {
         Task storage task = _tasks[taskId];
         Status currentStatus = task.status;
 
-        // Check if task is active (IN_PROGRESS or COMPLETED)
-        if (currentStatus == Status.IN_PROGRESS || currentStatus == Status.COMPLETED) {
+        if (currentStatus == Status.IN_PROGRESS || currentStatus == Status.COMPLETED || currentStatus == Status.DISPUTED) {
             revert CannotCancelActiveTask();
         }
 
-        // Check if task is not cancellable (must be OPEN or ASSIGNED)
         if (currentStatus != Status.OPEN && currentStatus != Status.ASSIGNED) {
-            revert TaskNotOpen(); // Reusing TaskNotOpen to signify task is not in a customizable open state
+            revert TaskNotOpen();
         }
 
         uint256 refund = task.rewardAmount;
         address creator = task.creator;
 
-        // Perform state update BEFORE the external transfer (Checks-Effects-Interactions pattern)
         task.status = Status.CANCELLED;
 
-        // Refund escrowed funds to task creator
         (bool success, ) = payable(creator).call{value: refund}("");
-        if (!success) {
-            revert EscrowTransferFailed();
-        }
+        if (!success) revert EscrowTransferFailed();
 
         emit TaskCancelled(taskId, creator, refund, block.timestamp);
     }
 
-    /**
-     * @notice Retrieves the full struct details of a specific task.
-     * @param taskId The unique identifier of the task.
-     * @return A Task struct containing all current information about the task.
-     */
     function getTask(bytes32 taskId) external view override taskExists(taskId) returns (Task memory) {
         return _tasks[taskId];
     }
 
-    /**
-     * @notice Retrieves all task IDs created through this factory.
-     * @return An array of 32-byte unique task identifiers.
-     */
     function getAllTaskIds() external view returns (bytes32[] memory) {
         return _allTaskIds;
     }
 
-    /**
-     * @notice Emergency administrative withdrawal of stuck ERC20 tokens.
-     * @dev Native funds held in escrows are not withdrawable through this function.
-     * @param token Address of the ERC20 token to recover.
-     * @param amount Quantity of tokens to withdraw.
-     */
     function recoverERC20(address token, uint256 amount) external onlyOwner {
         if (token == address(0)) {
             revert InvalidAddress();
         }
-        // Low-level call to avoid direct dependency on IERC20
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSignature("transfer(address,uint256)", owner(), amount)
         );

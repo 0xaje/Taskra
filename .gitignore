@@ -70,3 +70,8 @@ seed-phrase.txt
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript Build Cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+

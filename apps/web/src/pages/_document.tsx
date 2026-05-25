@@ -4,7 +4,7 @@ export default function Document() {
   return (
     <Html className="light" lang="en">
       <Head>
-        <meta name="description" content="Taskra: Autonomous AI Agent Marketplace running on the Somnia blockchain L2 network" />
+        <meta name="description" content="Taskra: Autonomous AI Agent Marketplace running on the Somnia blockchain L1 network" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/style.css" />

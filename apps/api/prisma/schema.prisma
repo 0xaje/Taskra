@@ -20,6 +20,9 @@ model Agent {
   jobsCompleted  Int      @default(0)
   earningsETH    Decimal  @default(0.0) @db.Decimal(20, 8)
   earningsUSDC   Decimal  @default(0.0) @db.Decimal(20, 2)
+  stakeLocked    Decimal  @default(0.0) @db.Decimal(20, 8)
+  cooldownTicks  Int      @default(0)
+  collateralSlashHistory Decimal @default(0.0) @db.Decimal(20, 8)
   avatar         String   @default("smart_toy")
   description    String
   createdAt      DateTime @default(now())
@@ -27,6 +30,7 @@ model Agent {
   
   bids           Bid[]
   assignedTasks  Task[]   @relation("AgentTasks")
+  memories       AgentMemory[]
 }
 
 model Task {
@@ -43,8 +47,24 @@ model Task {
   creator         String   // Ethereum address of task creator
   assignedAgentId String?
   assignedAgent   Agent?   @relation("AgentTasks", fields: [assignedAgentId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  whyCreated          String?
+  sourceSignal        String?
+  urgencyScore        Float?
+  economicImportance  String?
+  confidenceScore     Float?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  expiresAt           DateTime?
+  failedCount         Int      @default(0)
+
+  parentId          String?
+  parent            Task?    @relation("TaskLineage", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Task[]   @relation("TaskLineage")
+  evolutionDepth    Int      @default(0)
+  evolutionTrigger  String?  // "AUDIT_VULNERABILITY" | "ANALYTICS_ANOMALY" | "FAILED_EXECUTION" | "CONGESTION_SPIKE"
+  evolutionReason   String?
+  lineageScore      Float?
+  economicInheritanceRules String?
 
   bids            Bid[]
 }
@@ -56,6 +76,7 @@ model Bid {
   agentId    String
   agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   bidAmount  Decimal  @db.Decimal(20, 8)
+  collateralLocked Decimal @default(0.0) @db.Decimal(20, 8)
   status     String   @default("PENDING") // "PENDING", "ACCEPTED", "REJECTED"
   timestamp  DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -72,4 +93,125 @@ model BlockchainTx {
   gas       String
   status    String   // "SUCCESS", "FAILURE"
   createdAt DateTime @default(now())
+}
+
+model SystemSignal {
+  id         String   @id @default(uuid())
+  type       String   // e.g. "abnormal_tx_spike", "failed_tx_rates", "congestion_metrics", etc.
+  value      Float
+  severity   String   // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  metadata   String   // JSON string with exact details
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model AgentReasoning {
+  id              String   @id @default(uuid())
+  agentId         String
+  agentName       String
+  specialty       String
+  action          String   // "BIDDING" | "SKIPPING" | "VALIDATING" | "REJECTING" | "EVOLUTION"
+  taskId          String?
+  taskTitle       String?
+  profitability   Float
+  confidence      Float
+  compatibility   Float
+  successRate     Float
+  riskScore       Float
+  reputationDelta Float    @default(0.0)
+  explanation     String
+  timestamp       DateTime @default(now())
+}
+
+model EconomyMetrics {
+  id              String   @id @default(uuid())
+  totalStakes     Decimal  @default(0.0) @db.Decimal(20, 8)
+  totalSlashed    Decimal  @default(0.0) @db.Decimal(20, 8)
+  bankruptCount   Int      @default(0)
+  failedTasks     Int      @default(0)
+  activeAuctions  Int      @default(0)
+  avgRewardETH    Float    @default(0.0)
+  congestionIndex Float    @default(0.0)
+  timestamp       DateTime @default(now())
+}
+
+model AgentMemory {
+  id          String   @id @default(uuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  type        String   // "PROFITABLE_TASK" | "FAILED_PATTERN" | "RISKY_COMPETITOR" | "SUCCESSFUL_STRATEGY" | "ECONOMIC_TREND"
+  key         String   // e.g. "category:DeFi", "tag:contract", "competitor:MEV_Destroyer", etc.
+  value       Float    // dynamic score or counter
+  sentiment   String   // "POSITIVE" | "NEGATIVE" | "NEUTRAL"
+  explanation String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([agentId, type, key])
+}
+
+// Tracks how an agent's decision-making strategy has evolved over simulation cycles
+model AgentStrategyDrift {
+  id               String   @id @default(uuid())
+  agentId          String
+  cycleNumber      Int
+  strategy         String   // "Conservative" | "Balanced" | "Aggressive"
+  repScore         Float
+  winRate          Float
+  confidenceAdj    Float    // confidenceAdjustment from Redis memory
+  strategyModifier Float    // strategyModifier from Redis memory
+  consecutiveSuccesses Int
+  consecutiveSlashes   Int
+  rollingProfitability Float
+  dominantMemoryType   String  // the memory type with highest magnitude value
+  driftReason          String  // human-readable explanation of the change
+  createdAt        DateTime @default(now())
+}
+
+// Multi-agent coalition formed to collaboratively execute complex tasks
+model AgentCoalition {
+  id              String   @id @default(uuid())
+  taskId          String   // the root complex task being decomposed
+  taskTitle       String
+  taskCategory    String
+  status          String   @default("FORMING")  // "FORMING" | "EXECUTING" | "CO_SIGNING" | "SETTLED" | "FAILED"
+  totalReward     Float
+  rewardType      String
+  collaborationScore Float? // 0.0 - 1.0 quality score of the collaboration
+  executionProofHash String? // co-signed proof hash
+  driftReason     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members         CoalitionMember[]
+  subtasks        CoalitionSubtask[]
+}
+
+// Each member of a coalition
+model CoalitionMember {
+  id              String   @id @default(uuid())
+  coalitionId     String
+  coalition       AgentCoalition @relation(fields: [coalitionId], references: [id], onDelete: Cascade)
+  agentId         String
+  agentName       String
+  specialty       String
+  role            String   // "LEAD" | "SUPPORT" | "VALIDATOR" | "AUDITOR"
+  rewardShare     Float    // fraction of total reward (0.0 - 1.0, all shares sum to 1.0)
+  rewardAmount    Float    // actual reward amount
+  signatureHash   String?  // individual co-signature
+  contributed     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+// Decomposed subtasks assigned to each coalition member
+model CoalitionSubtask {
+  id              String   @id @default(uuid())
+  coalitionId     String
+  coalition       AgentCoalition @relation(fields: [coalitionId], references: [id], onDelete: Cascade)
+  agentId         String
+  agentName       String
+  title           String
+  description     String
+  status          String   @default("PENDING") // "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
+  createdAt       DateTime @default(now())
 }

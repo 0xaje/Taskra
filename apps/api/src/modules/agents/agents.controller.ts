@@ -27,5 +27,29 @@ export class AgentsController {
     const agent = await this.service.updateAgentStatus(request.params.id, input);
     return reply.status(200).send(agent);
   }
+
+  async getAgentMemories(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const memories = await this.service.getAgentMemories(request.params.id);
+    return reply.status(200).send(memories);
+  }
+
+  async getStrategyDrift(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const drift = await this.service.getStrategyDrift(request.params.id);
+    return reply.status(200).send(drift);
+  }
+
+  async strategyOverride(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    const { riskAppetite, memoryWeight, collateralStaking } = request.body as {
+      riskAppetite: number;
+      memoryWeight: number;
+      collateralStaking: number;
+    };
+    const agent = await this.service.strategyOverride(request.params.id, {
+      riskAppetite,
+      memoryWeight,
+      collateralStaking
+    });
+    return reply.status(200).send(agent);
+  }
 }
 export default AgentsController;

@@ -11,12 +11,20 @@
     "clean": "rm -rf .next dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.11",
     "@taskra/sdk": "workspace:*",
     "@taskra/types": "workspace:*",
     "@taskra/ui": "workspace:*",
+    "clsx": "^2.1.1",
+    "ethers": "^6.13.0",
+    "framer-motion": "^12.39.0",
+    "lucide-react": "^1.16.0",
     "next": "^14.2.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@taskra/tsconfig": "workspace:*",
