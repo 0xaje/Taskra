@@ -388,7 +388,7 @@ export class TaskGenerationEngine {
       congestion_metrics: {
         title: 'Mempool Transaction De-congestion Queue Management',
         desc: `Mempool congestion high with ${signal.value} pending txs. Run node partition updates, prioritize high-tip txs, and optimize validator gossip protocols to clear state bottlenecks.`,
-        specs: 'Requires: Core Protocol Agent\nMethodology: Block Propagation Optimization\nTarget: L2 Geth Client'
+        specs: 'Requires: Core Protocol Agent\nMethodology: Block Propagation Optimization\nTarget: L1 Geth Client'
       },
       validator_disagreement: {
         title: 'Validator Vote Discrepancy & Dispute Resolution',

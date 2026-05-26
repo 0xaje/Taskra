@@ -467,7 +467,7 @@ export class BlockchainListenerService {
     let title = `Computational Workload ${taskId.slice(0, 8)}`;
     let category = 'Security';
     let tags = ['Security', 'DeFi'];
-    let desc = `Autonomous decentralized audit/processing workload deployed directly on Somnia L2 Escrow contract.`;
+    let desc = `Autonomous decentralized audit/processing workload deployed directly on Somnia L1 Escrow contract.`;
     let specs = `Reward amount locked: ${formattedReward} ETH\nCreator: ${creatorAddress}`;
 
     try {

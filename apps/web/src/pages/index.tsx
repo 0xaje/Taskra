@@ -510,11 +510,11 @@ export default function Home() {
           showToast("Swarm coalitions fracturing!", "error");
         } else if (timer === 4) {
           addEvent("CRITICAL: High congestion detected. Slashes spike by +450%.", "error");
-          showToast("High L2 gas and slashing detected!", "error");
+          showToast("High L1 gas and slashing detected!", "error");
         } else if (timer === 6) {
           addEvent("AGENTS: Deployed nodes prioritizing risk avoidance over profit margins.", "reasoning");
         } else if (timer === 8) {
-          addEvent("CRITICAL: Rogue node validation detected on L2 ledger registry.", "error");
+          addEvent("CRITICAL: Rogue node validation detected on L1 ledger registry.", "error");
         } else if (timer === 10) {
           addEvent("SYSTEM: Self-governing agents initiating adaptive negotiation protocols.", "primary");
           showToast("Autonomous adaptation started!", "info");
@@ -569,7 +569,7 @@ export default function Home() {
         if (timer >= 12) {
           setCrisisState('STABLE');
           setCivilizationStability(100);
-          addEvent("EQUILIBRIUM: L2 mesh network successfully healed itself autonomously.", "secondary");
+          addEvent("EQUILIBRIUM: L1 mesh network successfully healed itself autonomously.", "secondary");
         }
       }, 1000);
     }
@@ -866,7 +866,7 @@ export default function Home() {
     // Connect to Metamask provider and execute createEscrow
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       try {
-        showToast("Initiating live L2 Escrow Lock via MetaMask...", "info");
+        showToast("Initiating live L1 Escrow Lock via MetaMask...", "info");
         
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         const signer = await provider.getSigner();
@@ -887,11 +887,11 @@ export default function Home() {
         const tx = await escrowContract.createEscrow(taskBytes, randomAgent, { value: valueWei });
         
         showToast("Transaction submitted! Waiting for Somnia block confirmation...", "info");
-        addEvent(`ESCROW: Broadcasted L2 Lock transaction. Tx: ${tx.hash.slice(0, 10)}...`, 'primary');
+        addEvent(`ESCROW: Broadcasted L1 Lock transaction. Tx: ${tx.hash.slice(0, 10)}...`, 'primary');
         
         await tx.wait();
         showToast("Escrow lock successfully validated on-chain!", "success");
-        addEvent(`SUCCESS: Real-time L2 Escrow locked for task ${selectedTaskId} on Somnia Testnet!`, 'secondary');
+        addEvent(`SUCCESS: Real-time L1 Escrow locked for task ${selectedTaskId} on Somnia Testnet!`, 'secondary');
       } catch (err: any) {
         showToast(`Transaction failed: ${err.message}`, "error");
         return;
@@ -1068,7 +1068,7 @@ export default function Home() {
         showToast("Agent telemetry strategy updated!", "success");
       }
     } catch {
-      showToast("Failed to commit settings to L2 agent registry.", "error");
+      showToast("Failed to commit settings to L1 agent registry.", "error");
     }
   };
 
@@ -1377,7 +1377,7 @@ export default function Home() {
 
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md relative z-10">
                       <div className="space-y-xs">
-                        <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest font-bold">L2 Swarm Swarm Accounting Oracle</span>
+                        <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest font-bold">L1 Swarm Swarm Accounting Oracle</span>
                         <div className="flex items-center gap-sm">
                           <h2 className="font-headline text-lg font-bold dark:text-white flex items-center gap-xs">
                             Civilization Stability Index
@@ -1598,7 +1598,7 @@ export default function Home() {
                     <div className="px-lg pt-lg">
                       <div className="h-[180px] bg-surface-container-lowest dark:bg-zinc-950 border border-outline-variant dark:border-zinc-800 rounded-lg overflow-hidden relative group shadow-sm">
                         <div className="absolute top-md left-md z-10 pointer-events-none select-none">
-                          <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest block font-bold">L2 Agent Mesh Topology</span>
+                          <span className="font-data-mono text-[9px] text-outline dark:text-zinc-500 uppercase tracking-widest block font-bold">L1 Agent Mesh Topology</span>
                           <span className="text-[8px] text-emerald-400 font-bold flex items-center gap-xs mt-1">
                             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             ACTIVE REAL-TIME STREAM
@@ -2407,7 +2407,7 @@ export default function Home() {
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-on-surface-variant dark:text-zinc-400">Escrow Contract Gas</span>
-                  <span className="font-data-mono text-secondary dark:text-cyan-400 font-medium">FREE (L2 Sandbox)</span>
+                  <span className="font-data-mono text-secondary dark:text-cyan-400 font-medium">FREE (L1 Sandbox)</span>
                 </div>
               </div>
 
@@ -2462,7 +2462,7 @@ export default function Home() {
 
               <div className="p-md bg-secondary/5 dark:bg-cyan-500/5 border border-secondary/20 dark:border-cyan-500/20 rounded-lg flex items-center justify-between">
                 <div>
-                  <h5 className="text-xs font-bold text-secondary dark:text-cyan-400">L2 Sandboxed Faucet</h5>
+                  <h5 className="text-xs font-bold text-secondary dark:text-cyan-400">L1 Sandboxed Faucet</h5>
                   <p className="text-[10px] text-on-surface-variant dark:text-zinc-400">Request free gas and test tokens for bidding.</p>
                 </div>
                 <Button onClick={triggerFaucet} variant="secondary" size="sm">CLAIM TOKENS</Button>

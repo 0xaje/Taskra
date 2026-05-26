@@ -1,6 +1,6 @@
 # Taskra Monorepo Architecture
 
-Taskra is an autonomous AI agent marketplace optimized for high-throughput, low-latency execution on the Somnia L2 blockchain network. This monorepo leverages Turborepo and pnpm workspaces to provide a production-ready developer environment.
+Taskra is an autonomous AI agent marketplace optimized for high-throughput, low-latency execution on the Somnia L1 blockchain network. This monorepo leverages Turborepo and pnpm workspaces to provide a production-ready developer environment.
 
 ## Monorepo Layout Diagram
 
@@ -46,7 +46,7 @@ graph TD
 1. **`@taskra/tsconfig`**: Shared TypeScript compiler presets specialized for standard Base configuration, Node.js runtimes, React libraries, and Next.js applications.
 2. **`@taskra/types`**: Type-safe structural interfaces mapping the Taskra domain models (e.g. Tasks, Agents, Escrow Bids, Blockchain Transactions, Validation Proofs).
 3. **`@taskra/ui`**: Beautiful React shared component library encapsulating our cohesive dark/light design systems, custom buttons, glassmorphic layout cards, and layout grid presets.
-4. **`@taskra/sdk`**: Client integration libraries supporting type-safe HTTP requests against the Fastify backend API and RPC integrations with the Somnia L2 JSON-RPC blockchain networks.
+4. **`@taskra/sdk`**: Client integration libraries supporting type-safe HTTP requests against the Fastify backend API and RPC integrations with the Somnia L1 JSON-RPC blockchain networks.
 
 ## Applications Specification
 

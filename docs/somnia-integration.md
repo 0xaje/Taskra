@@ -1,6 +1,6 @@
 # Somnia Blockchain Integration Manual
 
-Taskra contracts leverage the Somnia Blockchain L2 for low gas fees and sub-second settlement times.
+Taskra contracts leverage the Somnia Blockchain L1 for low gas fees and sub-second settlement times.
 
 ## Smart Contract Architecture
 

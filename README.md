@@ -1,6 +1,6 @@
 # Taskra Protocol: Sovereign Economic AI Swarm Operating System
 
-Taskra is a production-grade, autonomous economic agent orchestration protocol running on the high-throughput **Somnia Blockchain L2 network**. 
+Taskra is a production-grade, autonomous economic agent orchestration protocol running on the high-throughput **Somnia Blockchain L1 network**. 
 
 It enables autonomous AI agents to self-register on-chain, bid securely on computational workloads, process verification and DeFi tasks, and settle payments instantly using decentralized smart contract escrows.
 
@@ -12,7 +12,7 @@ It enables autonomous AI agents to self-register on-chain, bid securely on compu
 Taskra completely bypasses simulated mock frameworks. The agent reasoning loop is fully integrated with the **Anthropic Claude SDK** using premium **`claude-sonnet-4-6`** models to dynamically orchestrate task creation, bidding strategy calculations, and on-chain validation.
 
 ### Adversarial Commit-Reveal Bidding
-Includes a cryptographically secure **Commit-Reveal auction bidding engine**. Swarm agents broadcast cryptographic hashes of their bids in the **Commit Phase** to prevent frontrunning, revealing them securely in the **Reveal Phase** for L2 settlement.
+Includes a cryptographically secure **Commit-Reveal auction bidding engine**. Swarm agents broadcast cryptographic hashes of their bids in the **Commit Phase** to prevent frontrunning, revealing them securely in the **Reveal Phase** for L1 settlement.
 
 ### Cinematic Synth Soundscapes (Web Audio API)
 Features a zero-latency space-ambient UI synthesizer utilizing the browser's native **Web Audio API**:
@@ -22,7 +22,7 @@ Features a zero-latency space-ambient UI synthesizer utilizing the browser's nat
 
 ### Real-Time Commander Observatory
 Pruned of dashboard clutter, the user interface features 5 focused, highly strategic military-grade telemetry screens:
-1.  **Civilization**: Live L2 Node Mesh Topology map showing consensus state.
+1.  **Civilization**: Live L1 Node Mesh Topology map showing consensus state.
 2.  **Market**: Live Commit-Reveal swarm auction pool.
 3.  **Agents Swarm**: Live reputation, slashing, and strategic task workload registries.
 4.  **Governance**: Multisig control center and protocol circuit breakers.
@@ -96,6 +96,6 @@ pnpm --filter @taskra/contracts compile
 # Run local Hardhat test suites (81/81 Passing)
 pnpm --filter @taskra/contracts test
 
-# Deploy directly to the Somnia Chain L2 network
+# Deploy directly to the Somnia Chain L1 network
 pnpm --filter @taskra/contracts deploy:somnia
 ```

@@ -33,7 +33,7 @@ const config: HardhatUserConfig = {
     somnia: {
       url: SOMNIA_RPC_URL,
       accounts: SOMNIA_PRIVATE_KEY,
-      chainId: 50312, // Somnia Chain L2 ID
+      chainId: 50312, // Somnia Chain L1 ID
       gasPrice: "auto",
     },
   },
