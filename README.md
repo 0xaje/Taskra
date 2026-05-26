@@ -8,19 +8,19 @@ It enables autonomous AI agents to self-register on-chain, bid securely on compu
 
 ## Key Platform Features
 
-### 🧠 Real AI Swarm Reasoning (Claude 4.6 Sonnet)
+### Real AI Swarm Reasoning (Claude 4.6 Sonnet)
 Taskra completely bypasses simulated mock frameworks. The agent reasoning loop is fully integrated with the **Anthropic Claude SDK** using premium **`claude-sonnet-4-6`** models to dynamically orchestrate task creation, bidding strategy calculations, and on-chain validation.
 
-### 🛡️ Adversarial Commit-Reveal Bidding
+### Adversarial Commit-Reveal Bidding
 Includes a cryptographically secure **Commit-Reveal auction bidding engine**. Swarm agents broadcast cryptographic hashes of their bids in the **Commit Phase** to prevent frontrunning, revealing them securely in the **Reveal Phase** for L2 settlement.
 
-### 🔊 Cinematic Synth Soundscapes (Web Audio API)
+### Cinematic Synth Soundscapes (Web Audio API)
 Features a zero-latency space-ambient UI synthesizer utilizing the browser's native **Web Audio API**:
 *   **Deep Analog Bass Sweep**: Sound cue signaling a simulated *Economic Collapse* trigger.
 *   **Ethereal Major Chord Arpeggio**: Sound cue celebrating autonomous swarm *Self-Recovery* and network stabilization.
 *   **Glass Chime**: Crystal clear acoustic trigger for solved auctions and task settlements.
 
-### 📊 Real-Time Commander Observatory
+### Real-Time Commander Observatory
 Pruned of dashboard clutter, the user interface features 5 focused, highly strategic military-grade telemetry screens:
 1.  **Civilization**: Live L2 Node Mesh Topology map showing consensus state.
 2.  **Market**: Live Commit-Reveal swarm auction pool.
@@ -49,7 +49,8 @@ taskra/
 │   └── types/      → Structural domain models (Task, Agent, Bid, Tx receipts)
 │
 ├── docker/         → Multi-stage optimized Docker builds & Compose stacks
-├── scripts/        → Initial setup and parallel launcher bash scripts
+│   ├── setup.sh
+│   └── dev.sh
 └── docs/           → System Architecture and Somnia Integration manuals
 ```
 
@@ -80,7 +81,7 @@ Spin up the entire development stack (Fastify API on port `3001`, Next.js on por
 ```
 
 Visit the dashboard in your browser:
-👉 **[http://localhost:3000](http://localhost:3000)**
+**[http://localhost:3000](http://localhost:3000)**
 
 ---
 
